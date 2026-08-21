@@ -36,6 +36,7 @@ export default function AdminComprasPage() {
 
     recepcionarOCYFacturaProveedor(selectedOC.id, numeroFacturaProv, montoFactura);
     setIsRecepcionModalOpen(false);
+    setSelectedOC(null);
     setSuccessMsg(`Orden de Compra ${selectedOC.numero} marcada como RECIBIDA. Factura ${numeroFacturaProv} registrada y stock actualizado.`);
     setTimeout(() => setSuccessMsg(null), 4500);
   };

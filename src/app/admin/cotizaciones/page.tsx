@@ -71,6 +71,7 @@ export default function AdminCotizacionesPage() {
 
     asignarOrdenTrabajo(selectedCot.id, tecnicoSeleccionado, tecNombre, fechaInstalacion);
     setIsAsignarModalOpen(false);
+    setSelectedCot(null);
     setActionSuccessMsg(`Orden de Trabajo asignada a ${tecNombre} para el ${fechaInstalacion}.`);
     setTimeout(() => setActionSuccessMsg(null), 4000);
   };
