@@ -8,6 +8,7 @@ import { OrdenTrabajo } from '@/types/erp';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
+import { generarInformeTecnicoPDF } from '@/lib/documents';
 
 export default function TecnicoCampoPage() {
   const { ordenesTrabajo, agregarHitoBitacora, finalizarOTConFirma, actualizarEstadoOT } = useAgroErp();
@@ -363,12 +364,10 @@ export default function TecnicoCampoPage() {
                   </p>
 
                   <Button
-                    onClick={() =>
-                      showToast(
-                        'info',
-                        `Simulando generación del Informe Técnico PDF de ${currentOT.codigo} — se conectará al generador de PDF real en producción.`
-                      )
-                    }
+                    onClick={() => {
+                      generarInformeTecnicoPDF(currentOT);
+                      showToast('success', `Informe Técnico PDF de ${currentOT.codigo} descargado.`);
+                    }}
                     className="text-xs"
                   >
                     <Download className="w-4 h-4" />

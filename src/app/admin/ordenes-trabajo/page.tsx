@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
+import { generarInformeTecnicoPDF } from '@/lib/documents';
 
 export default function AdminOrdenesTrabajoPage() {
   const { ordenesTrabajo } = useAgroErp();
@@ -170,12 +171,10 @@ export default function AdminOrdenesTrabajoPage() {
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
               <Button
                 variant="secondary"
-                onClick={() =>
-                  showToast(
-                    'info',
-                    `Simulando generación del Informe Técnico PDF de ${selectedOT.codigo} — se conectará al generador de PDF real en producción.`
-                  )
-                }
+                onClick={() => {
+                  generarInformeTecnicoPDF(selectedOT);
+                  showToast('success', `Informe Técnico PDF de ${selectedOT.codigo} descargado.`);
+                }}
                 className="text-xs"
               >
                 <Download className="w-3.5 h-3.5" /> Descargar Informe Técnico PDF

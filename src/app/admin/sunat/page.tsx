@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
+import { downloadTextFile, generarComprobanteXML, generarCdrTexto, generarComprobantePDF } from '@/lib/documents';
 
 export default function AdminSunatPage() {
   const { comprobantesSunat } = useAgroErp();
@@ -132,12 +133,10 @@ export default function AdminSunatPage() {
                       </button>
 
                       <button
-                        onClick={() =>
-                          showToast(
-                            'info',
-                            `Simulando descarga de ${cpe.serie}-${cpe.numero}.xml — se conectará a la firma digital SUNAT real en producción.`
-                          )
-                        }
+                        onClick={() => {
+                          downloadTextFile(`${cpe.serie}-${cpe.numero}.xml`, generarComprobanteXML(cpe), 'application/xml');
+                          showToast('success', `XML UBL 2.1 de ${cpe.serie}-${cpe.numero} descargado.`);
+                        }}
                         title="Descargar XML firmado"
                         className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 cursor-pointer"
                       >
@@ -145,13 +144,11 @@ export default function AdminSunatPage() {
                       </button>
 
                       <button
-                        onClick={() =>
-                          showToast(
-                            'info',
-                            `Simulando descarga de R-${cpe.serie}-${cpe.numero}.zip — se conectará al servicio SUNAT real en producción.`
-                          )
-                        }
-                        title="Descargar CDR SUNAT (ZIP)"
+                        onClick={() => {
+                          downloadTextFile(`R-${cpe.serie}-${cpe.numero}-CDR.txt`, generarCdrTexto(cpe), 'text/plain');
+                          showToast('success', `Constancia de Recepción (CDR) de ${cpe.serie}-${cpe.numero} descargada.`);
+                        }}
+                        title="Descargar CDR SUNAT"
                         className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
@@ -228,10 +225,13 @@ export default function AdminSunatPage() {
             <div className="flex justify-end gap-2 pt-3">
               <Button
                 variant="secondary"
-                onClick={() => window.print()}
+                onClick={() => {
+                  generarComprobantePDF(selectedCPE);
+                  showToast('success', `Representación impresa de ${selectedCPE.serie}-${selectedCPE.numero} descargada.`);
+                }}
                 className="text-xs"
               >
-                <Printer className="w-3.5 h-3.5" /> Imprimir Representación Impresa
+                <Printer className="w-3.5 h-3.5" /> Descargar Representación Impresa
               </Button>
               <Button onClick={() => setSelectedCPE(null)} className="bg-slate-900 text-white text-xs">
                 Cerrar

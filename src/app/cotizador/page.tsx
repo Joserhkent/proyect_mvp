@@ -28,6 +28,7 @@ import { useAgroErp } from '@/context/AgroErpContext';
 import { Producto, Cotizacion, CotizacionTipoOperacion, TipoDocumento } from '@/types/erp';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { generarCotizacionPDF } from '@/lib/documents';
 
 export default function CotizadorPage() {
   const { productos, crearCotizacion, consultarRucDniSunat } = useAgroErp();
@@ -730,10 +731,13 @@ export default function CotizadorPage() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    generarCotizacionPDF(cotizacionGenerada);
+                    showToast('success', `Cotización ${cotizacionGenerada.numero} descargada en PDF.`);
+                  }}
                   className="flex-1 sm:flex-none text-xs"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+                  <Printer className="w-3.5 h-3.5" /> Descargar PDF
                 </Button>
                 <Button
                   type="button"
