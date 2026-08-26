@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AgroErpProvider } from "@/context/AgroErpContext";
@@ -14,10 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "AgroFertil ERP / CRM • Cotizador, SUNAT, Compras y Módulo Técnico",
-  description: "Sistema integral ERP / CRM para empresas agrícolas: cotizaciones en vivo con consulta RUC/DNI, generación automática de órdenes de compra, facturación electrónica SUNAT y módulo técnico de campo con fotos y firma.",
-};
+
 
 export default function RootLayout({
   children,

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -12,7 +13,6 @@ import {
   Package,
   Truck,
   Users,
-  Sprout,
   ExternalLink,
   ChevronRight,
 } from 'lucide-react';
@@ -54,32 +54,26 @@ export function AdminSidebar() {
   return (
     <aside className="w-64 bg-white border-r border-slate-200 text-slate-700 flex flex-col shrink-0 min-h-screen shadow-xs">
       {/* Brand Header */}
-      <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200 bg-slate-50/50">
-        <Link href="/admin" className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20">
-            <Sprout className="w-5 h-5 fill-current" />
-          </div>
-          <div>
-            <span className="text-base font-extrabold text-slate-900 leading-tight block">AgroFertil ERP</span>
-            <span className="text-[9px] text-emerald-700 font-bold uppercase tracking-wider">Gestión SUNAT</span>
+      <div className="py-4 px-5 border-b border-slate-200 bg-slate-50/50">
+        <Link href="/admin" className="flex flex-col items-center justify-center gap-1.5 text-center">
+          {/* Logo transparente y más grande */}
+          <Image 
+            src="/logo.png" 
+            alt="Solftec Logo" 
+            width={180} 
+            height={100} 
+            priority
+            className="h-auto w-auto max-h-25 object-contain" 
+          />
+          
+          {/* Nombre y Leyenda debajo del logo */}
+          <div className="flex flex-col items-center">
+            <span className="text-[15px] text-emerald-700 font-bold uppercase tracking-wider">PANEL ADMINISTRATIVO</span>
           </div>
         </Link>
       </div>
 
-      {/* Quick Public Cotizador Link */}
-      <div className="p-3 mx-3 my-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-emerald-900 text-[11px]">Portal Público</span>
-          <Link
-            href="/cotizador"
-            target="_blank"
-            className="text-[10px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold"
-          >
-            Abrir <ExternalLink className="w-3 h-3" />
-          </Link>
-        </div>
-        <p className="text-[10px] text-slate-600 mt-1">Catálogo y cotizador en vivo con consulta de RUC/DNI.</p>
-      </div>
+  
 
       {/* Nav list */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">

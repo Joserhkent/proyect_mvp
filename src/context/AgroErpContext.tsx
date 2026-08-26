@@ -31,6 +31,10 @@ import confetti from 'canvas-confetti';
 
 interface AgroErpContextType {
   usuarioActual: Usuario;
+  usuarios: Usuario[];
+  setUsuarioActual: (usuario: Usuario) => void;
+  iniciarSesion: (email: string) => boolean;
+  cerrarSesion: () => void;
   cotizaciones: Cotizacion[];
   ordenesCompra: OrdenCompra[];
   facturasCompras: FacturaCompra[];
@@ -73,6 +77,7 @@ const AgroErpContext = createContext<AgroErpContextType | undefined>(undefined);
 
 export function AgroErpProvider({ children }: { children: React.ReactNode }) {
   const [usuarioActual, setUsuarioActual] = useState<Usuario>(INITIAL_USUARIOS[0]);
+  const [usuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>(INITIAL_COTIZACIONES);
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompra[]>(INITIAL_ORDENES_COMPRA);
   const [facturasCompras, setFacturasCompras] = useState<FacturaCompra[]>(INITIAL_FACTURAS_COMPRAS);
@@ -89,6 +94,7 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
+      const u = localStorage.getItem('agro_usuario_actual');
       const c = localStorage.getItem('agro_cotizaciones');
       const oc = localStorage.getItem('agro_ordenes_compra');
       const fc = localStorage.getItem('agro_facturas_compras');
@@ -98,6 +104,7 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
       const prov = localStorage.getItem('agro_proveedores');
       const cli = localStorage.getItem('agro_clientes');
 
+      if (u) setUsuarioActual(JSON.parse(u));
       if (c) setCotizaciones(JSON.parse(c));
       if (oc) setOrdenesCompra(JSON.parse(oc));
       if (fc) setFacturasCompras(JSON.parse(fc));
@@ -118,6 +125,7 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
     try {
+      localStorage.setItem('agro_usuario_actual', JSON.stringify(usuarioActual));
       localStorage.setItem('agro_cotizaciones', JSON.stringify(cotizaciones));
       localStorage.setItem('agro_ordenes_compra', JSON.stringify(ordenesCompra));
       localStorage.setItem('agro_facturas_compras', JSON.stringify(facturasCompras));
@@ -129,7 +137,28 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Error guardando en localStorage', e);
     }
-  }, [cotizaciones, ordenesCompra, facturasCompras, comprobantesSunat, ordenesTrabajo, productos, proveedores, clientes, isLoaded]);
+  }, [usuarioActual, cotizaciones, ordenesCompra, facturasCompras, comprobantesSunat, ordenesTrabajo, productos, proveedores, clientes, isLoaded]);
+
+  // Auth Actions
+  const iniciarSesion = (email: string): boolean => {
+    const user = usuarios.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
+    if (user) {
+      setUsuarioActual(user);
+      return true;
+    }
+    const customUser: Usuario = {
+      id: `usr_${Date.now()}`,
+      nombre: email.split('@')[0],
+      email: email,
+      rol: 'ADMIN',
+    };
+    setUsuarioActual(customUser);
+    return true;
+  };
+
+  const cerrarSesion = () => {
+    setUsuarioActual(INITIAL_USUARIOS[0]);
+  };
 
   // Consulta RUC / DNI
   const consultarRucDniSunat = async (numero: string, tipo?: 'RUC' | 'DNI'): Promise<ConsultaSunatResult> => {
@@ -215,6 +244,9 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
 
       const totalCosto = items.reduce((acc, i) => acc + i.cantidad * i.costo_unitario, 0);
 
+      const diasEntrega = provInfo.dias_entrega_estimados || 5;
+      const fechaEstimada = new Date(Date.now() + diasEntrega * 86400000).toISOString().split('T')[0];
+
       const nuevaOC: OrdenCompra = {
         id: `oc_${Date.now()}_${count}`,
         numero: `OC-2026-${count.toString().padStart(3, '0')}`,
@@ -225,6 +257,7 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
         cotizacion_id: cotizacion.id,
         cotizacion_numero: cotizacion.numero,
         fecha: new Date().toISOString().split('T')[0],
+        fecha_estimada_entrega: fechaEstimada,
         estado: 'ENVIADO',
         monto_total: totalCosto,
         moneda: cotizacion.moneda,
@@ -458,6 +491,10 @@ export function AgroErpProvider({ children }: { children: React.ReactNode }) {
     <AgroErpContext.Provider
       value={{
         usuarioActual,
+        usuarios,
+        setUsuarioActual,
+        iniciarSesion,
+        cerrarSesion,
         cotizaciones,
         ordenesCompra,
         facturasCompras,

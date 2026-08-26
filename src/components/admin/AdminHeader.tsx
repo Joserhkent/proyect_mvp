@@ -10,7 +10,7 @@ export function AdminHeader() {
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shadow-xs">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-slate-900">AGROFERTIL PERÚ S.A.C.</span>
+          <span className="font-bold text-slate-900">SOLUCIONES DE AUTOMATIZACIÓN AGRÍCOLA</span>
           <span className="text-slate-300">•</span>
           <span className="text-slate-500 font-mono">RUC: 20601234567</span>
           <span className="hidden md:inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold">

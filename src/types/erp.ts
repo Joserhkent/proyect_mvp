@@ -49,6 +49,10 @@ export interface Proveedor {
   telefono: string;
   contacto: string;
   direccion: string;
+  departamento?: string; // ej. 'LIMA', 'ICA', 'LA LIBERTAD'
+  provincia?: string;
+  dias_entrega_estimados?: number; // ej. Lima = 5 a 7 días, Local = 1 a 2 días
+  costo_flete_base?: number;
 }
 
 export interface Producto {
@@ -98,6 +102,7 @@ export interface Cotizacion {
   igv: number;
   total: number;
   moneda: 'PEN' | 'USD';
+  tiempo_entrega_estimado_dias?: number;
   observaciones?: string;
   incluye_mano_obra: boolean;
   costo_mano_obra: number;
@@ -129,6 +134,7 @@ export interface OrdenCompra {
   cotizacion_id?: string;
   cotizacion_numero?: string;
   fecha: string;
+  fecha_estimada_entrega?: string;
   estado: OrdenCompraEstado;
   monto_total: number;
   moneda: 'PEN' | 'USD';

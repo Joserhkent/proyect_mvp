@@ -42,7 +42,11 @@ export const INITIAL_PROVEEDORES: Proveedor[] = [
     email: 'ventas@riegotechperu.com',
     telefono: '(01) 456-7890',
     contacto: 'Ing. Fernando Salazar',
+    departamento: 'LIMA',
+    provincia: 'LIMA',
     direccion: 'Av. Industrial 1240, Cercado de Lima, Lima',
+    dias_entrega_estimados: 6, // Proveedor de Lima (Despacho interprovincial: 5-7 días)
+    costo_flete_base: 180,
   },
   {
     id: 'prov_2',
@@ -51,7 +55,11 @@ export const INITIAL_PROVEEDORES: Proveedor[] = [
     email: 'comercial@plasticosagri.pe',
     telefono: '+51 987 111 222',
     contacto: 'Mariela Cornejo',
+    departamento: 'LIMA',
+    provincia: 'LIMA',
     direccion: 'Jr. Los Claveles 450, Lurín, Lima',
+    dias_entrega_estimados: 5,
+    costo_flete_base: 120,
   },
   {
     id: 'prov_3',
@@ -60,7 +68,11 @@ export const INITIAL_PROVEEDORES: Proveedor[] = [
     email: 'pedidos@agroquimicavalle.com',
     telefono: '(056) 234-567',
     contacto: 'Dr. Roberto Chinchay',
+    departamento: 'ICA',
+    provincia: 'ICA',
     direccion: 'Panamericana Sur Km 298, Ica',
+    dias_entrega_estimados: 1, // Proveedor local (Entrega rápida en 24-48 horas)
+    costo_flete_base: 30,
   },
   {
     id: 'prov_4',
@@ -69,7 +81,11 @@ export const INITIAL_PROVEEDORES: Proveedor[] = [
     email: 'soporte@sensoresagri.com',
     telefono: '+51 999 444 333',
     contacto: 'Ing. Pamela Vega',
+    departamento: 'LIMA',
+    provincia: 'LIMA',
     direccion: 'Av. Aviación 3200, San Borja, Lima',
+    dias_entrega_estimados: 7, // Sensores importados / Despacho Lima
+    costo_flete_base: 150,
   },
 ];
 
