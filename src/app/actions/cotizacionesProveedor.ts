@@ -34,8 +34,27 @@ export async function registrarCotizacionProveedor(input: RegistrarOfertaProveed
   revalidatePath('/admin/cotizaciones');
 }
 
+/** Elimina una oferta puntual de proveedor. Solo mientras la cotización siga en BORRADOR. */
 export async function eliminarCotizacionProveedor(id: string) {
   const supabase = await createClient();
+
+  const { data: oferta, error: ofertaError } = await supabase
+    .from('cotizaciones_proveedor')
+    .select('cotizacion_id')
+    .eq('id', id)
+    .single();
+  if (ofertaError) throw new Error(ofertaError.message);
+
+  const { data: cotizacion, error: cotError } = await supabase
+    .from('cotizaciones')
+    .select('estado')
+    .eq('id', oferta.cotizacion_id)
+    .single();
+  if (cotError) throw new Error(cotError.message);
+  if (cotizacion.estado !== 'BORRADOR') {
+    throw new Error('Solo se pueden eliminar ofertas de proveedor mientras la cotización esté en BORRADOR.');
+  }
+
   const { error } = await supabase.from('cotizaciones_proveedor').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/cotizaciones');

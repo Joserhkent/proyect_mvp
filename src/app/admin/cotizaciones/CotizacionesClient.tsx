@@ -2,15 +2,22 @@
 
 import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Send, CheckCircle2, XCircle, Eye, Filter, PlusCircle, Trophy, ShoppingCart, Truck, Receipt, Wrench } from 'lucide-react';
+import { Plus, Search, Send, CheckCircle2, XCircle, Eye, Filter, PlusCircle, Trophy, ShoppingCart, Truck, Receipt, Wrench, Trash2, Ban, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
 import { CotizacionConCliente, CotizacionCompleta, EstadoDerivadoCotizacion } from '@/lib/queries/cotizaciones';
 import { Proveedor } from '@/types/db';
-import { obtenerCotizacionCompleta, enviarCotizacion, registrarAprobacionCliente, rechazarCotizacion } from '@/app/actions/cotizaciones';
-import { registrarCotizacionProveedor, elegirGanadorasAutomatico } from '@/app/actions/cotizacionesProveedor';
+import {
+  obtenerCotizacionCompleta,
+  enviarCotizacion,
+  registrarAprobacionCliente,
+  rechazarCotizacion,
+  anularCotizacion,
+  eliminarCotizacion,
+} from '@/app/actions/cotizaciones';
+import { registrarCotizacionProveedor, elegirGanadorasAutomatico, eliminarCotizacionProveedor } from '@/app/actions/cotizacionesProveedor';
 import { generarOrdenesCompraDesdeCotizacion } from '@/app/actions/ordenesCompra';
 import { crearDespachoCliente } from '@/app/actions/despachos';
 import { emitirComprobanteSunat } from '@/app/actions/facturacion';
@@ -44,6 +51,7 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
   const [mostrarAsignarTecnico, setMostrarAsignarTecnico] = useState(false);
   const [tecnicoId, setTecnicoId] = useState('');
   const [fechaProgramada, setFechaProgramada] = useState(() => new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]);
+  const [confirmAccion, setConfirmAccion] = useState<{ tipo: 'eliminar' | 'anular'; cotizacion: CotizacionConCliente } | null>(null);
 
   const filtradas = cotizaciones.filter((c) => {
     const cliente = c.clientes;
@@ -120,8 +128,16 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
     if (!ofertaForm) return;
     const costo = parseFloat(ofertaForm.costo);
     const dias = parseInt(ofertaForm.dias, 10);
-    if (!ofertaForm.proveedorId || Number.isNaN(costo) || Number.isNaN(dias)) {
-      showToast('error', 'Completa proveedor, costo y días de entrega.');
+    if (!ofertaForm.proveedorId) {
+      showToast('error', 'Selecciona un proveedor.');
+      return;
+    }
+    if (Number.isNaN(costo) || costo <= 0) {
+      showToast('error', 'El costo unitario debe ser mayor a 0.');
+      return;
+    }
+    if (Number.isNaN(dias) || !Number.isInteger(dias) || dias <= 0) {
+      showToast('error', 'Los días de entrega deben ser un número entero mayor a 0.');
       return;
     }
     startTransition(async () => {
@@ -140,6 +156,18 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
         refrescarDetalle();
       } catch (e) {
         showToast('error', e instanceof Error ? e.message : 'No se pudo registrar la oferta.');
+      }
+    });
+  }
+
+  function handleEliminarOferta(ofertaId: string) {
+    startTransition(async () => {
+      try {
+        await eliminarCotizacionProveedor(ofertaId);
+        showToast('info', 'Oferta de proveedor eliminada.');
+        refrescarDetalle();
+      } catch (e) {
+        showToast('error', e instanceof Error ? e.message : 'No se pudo eliminar la oferta.');
       }
     });
   }
@@ -219,6 +247,26 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
     });
   }
 
+  function handleConfirmarAccion() {
+    if (!confirmAccion) return;
+    const { tipo, cotizacion } = confirmAccion;
+    startTransition(async () => {
+      try {
+        if (tipo === 'eliminar') {
+          await eliminarCotizacion(cotizacion.id);
+          showToast('success', `Cotización ${cotizacion.codigo ?? ''} eliminada.`);
+        } else {
+          await anularCotizacion(cotizacion.id);
+          showToast('info', `Cotización ${cotizacion.codigo ?? ''} anulada.`);
+        }
+        if (selectedId === cotizacion.id) cerrarDetalle();
+        setConfirmAccion(null);
+      } catch (e) {
+        showToast('error', e instanceof Error ? e.message : 'No se pudo completar la acción.');
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -228,7 +276,7 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
             Compara ofertas de proveedores, envía la cotización y registra la aprobación del cliente.
           </p>
         </div>
-        <Link href="/cotizador" target="_blank">
+        <Link href="/cotizador">
           <Button className="text-xs">
             <Plus className="w-4 h-4" />
             Nueva Cotización (Portal)
@@ -274,7 +322,7 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
                 <th className="p-4">Tipo</th>
                 <th className="p-4">Estado</th>
                 <th className="p-4 text-right">Monto Total</th>
-                <th className="p-4 text-center">Detalle</th>
+                <th className="p-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -309,13 +357,33 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
                       {cot.moneda === 'USD' ? '$' : 'S/'} {(cot.total ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => abrirDetalle(cot.id)}
-                        title="Ver detalle y gestionar flujo"
-                        className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => abrirDetalle(cot.id)}
+                          title="Ver detalle y gestionar flujo"
+                          className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        {cot.estado === 'BORRADOR' && (
+                          <button
+                            onClick={() => setConfirmAccion({ tipo: 'eliminar', cotizacion: cot })}
+                            title="Eliminar cotización (borrador)"
+                            className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {cot.estado !== 'BORRADOR' && cot.estado !== 'RECHAZADA' && (
+                          <button
+                            onClick={() => setConfirmAccion({ tipo: 'anular', cotizacion: cot })}
+                            title="Anular / Cancelar cotización"
+                            className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors cursor-pointer"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -375,8 +443,18 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
                                 {of.es_ganadora && <Trophy className="w-3 h-3" />}
                                 {of.proveedores?.razon_social}
                               </span>
-                              <span>
+                              <span className="flex items-center gap-1.5">
                                 S/ {of.costo_unitario} • {of.dias_entrega} días
+                                {detalle.cotizacion.estado === 'BORRADOR' && (
+                                  <button
+                                    onClick={() => handleEliminarOferta(of.id)}
+                                    disabled={isPending}
+                                    title="Eliminar oferta"
+                                    className="text-rose-500 hover:text-rose-700 disabled:opacity-40 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
                               </span>
                             </div>
                           ))}
@@ -399,6 +477,8 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
                           </select>
                           <input
                             type="number"
+                            min="0.01"
+                            step="0.01"
                             placeholder="Costo"
                             value={ofertaForm.costo}
                             onChange={(e) => setOfertaForm({ ...ofertaForm, costo: e.target.value })}
@@ -406,6 +486,8 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
                           />
                           <input
                             type="number"
+                            min="1"
+                            step="1"
                             placeholder="Días"
                             value={ofertaForm.dias}
                             onChange={(e) => setOfertaForm({ ...ofertaForm, dias: e.target.value })}
@@ -567,6 +649,49 @@ export function CotizacionesClient({ cotizaciones, proveedores, tecnicos }: Prop
               )}
             </div>
           )}
+        </Modal>
+      )}
+
+      {confirmAccion && (
+        <Modal
+          isOpen={Boolean(confirmAccion)}
+          onClose={() => setConfirmAccion(null)}
+          title={confirmAccion.tipo === 'eliminar' ? 'Eliminar cotización' : 'Anular cotización'}
+          maxWidth="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-900">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              {confirmAccion.tipo === 'eliminar' ? (
+                <span>
+                  Vas a eliminar permanentemente la cotización <strong>{confirmAccion.cotizacion.codigo ?? '(sin código)'}</strong> y sus productos/ofertas
+                  de proveedor asociadas. Esta acción no se puede deshacer.
+                </span>
+              ) : (
+                <span>
+                  Vas a anular la cotización <strong>{confirmAccion.cotizacion.codigo ?? '(sin código)'}</strong>. Pasará a estado{' '}
+                  <strong>RECHAZADA</strong>; no se elimina, para mantener el historial y la correlatividad frente a órdenes de compra/facturas ya
+                  asociadas.
+                </span>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmAccion(null)} className="text-xs">
+                Cancelar
+              </Button>
+              <Button variant="danger" disabled={isPending} onClick={handleConfirmarAccion} className="text-xs">
+                {confirmAccion.tipo === 'eliminar' ? (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" /> Sí, eliminar
+                  </>
+                ) : (
+                  <>
+                    <Ban className="w-3.5 h-3.5" /> Sí, anular
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

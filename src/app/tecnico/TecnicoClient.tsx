@@ -154,20 +154,30 @@ export function TecnicoClient({ ordenesTrabajo }: { ordenesTrabajo: OrdenTrabajo
       </header>
 
       <div className="max-w-3xl mx-auto px-4 pt-4 space-y-4">
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Orden de Trabajo Asignada:</label>
-          <select
-            value={otSeleccionadaId ?? ''}
-            onChange={(e) => setOtSeleccionadaId(e.target.value)}
-            className="w-full p-2.5 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-bold text-xs"
-          >
-            {ordenesTrabajo.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.codigo} - {o.clientes?.razon_social} ({o.estado})
-              </option>
-            ))}
-          </select>
-        </div>
+        {ordenesTrabajo.length === 0 ? (
+          <div className="p-6 bg-white rounded-xl border border-dashed border-slate-300 text-center space-y-1.5">
+            <p className="text-sm font-bold text-slate-700">Todavía no tienes órdenes de trabajo asignadas</p>
+            <p className="text-xs text-slate-500">
+              Una orden aparece aquí cuando, en el panel administrativo, se asigna un técnico a una cotización de tipo
+              &quot;Proyecto (Mesa)&quot; ya aprobada por el cliente.
+            </p>
+          </div>
+        ) : (
+          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Orden de Trabajo Asignada:</label>
+            <select
+              value={otSeleccionadaId ?? ''}
+              onChange={(e) => setOtSeleccionadaId(e.target.value)}
+              className="w-full p-2.5 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-bold text-xs"
+            >
+              {ordenesTrabajo.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.codigo} - {o.clientes?.razon_social} ({o.estado})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {ot && (
           <>

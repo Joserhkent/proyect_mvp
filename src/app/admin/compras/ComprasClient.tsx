@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { Search, Eye, Filter, Send, CreditCard, PackageCheck, Ban, Download, FileImage } from 'lucide-react';
+import { Search, Eye, Filter, Send, CreditCard, PackageCheck, Ban, Download, FileImage, UploadCloud, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -338,10 +338,45 @@ export function ComprasClient({ ordenes }: { ordenes: OrdenCompraConProveedor[] 
               )}
 
               {detalle.estado === 'PENDIENTE_PAGO' && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-3">
                   <h4 className="font-bold text-slate-900">Registrar pago</h4>
-                  <input type="file" accept="image/*,application/pdf" onChange={(e) => setVoucherFile(e.target.files?.[0] ?? null)} className="text-[10px]" />
-                  <Button size="sm" disabled={isPending} onClick={handleRegistrarPago} className="text-xs">
+
+                  <label
+                    htmlFor="voucher-file-input"
+                    className="flex items-center gap-2.5 p-3 rounded-lg border-2 border-dashed border-slate-300 bg-white hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors cursor-pointer"
+                  >
+                    <UploadCloud className="w-5 h-5 text-slate-400 shrink-0" />
+                    <span className="text-[11px] text-slate-500 flex-1">
+                      {voucherFile ? (
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-800 truncate">{voucherFile.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setVoucherFile(null);
+                            }}
+                            title="Quitar archivo"
+                            className="text-slate-400 hover:text-rose-600 shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      ) : (
+                        'Haz clic para seleccionar el voucher (imagen o PDF)'
+                      )}
+                    </span>
+                    <input
+                      id="voucher-file-input"
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setVoucherFile(e.target.files?.[0] ?? null)}
+                      className="sr-only"
+                    />
+                  </label>
+
+                  <Button size="sm" disabled={isPending || !voucherFile} onClick={handleRegistrarPago} className="text-xs w-full">
                     <CreditCard className="w-3.5 h-3.5" /> Subir voucher y marcar PAGADA
                   </Button>
                 </div>

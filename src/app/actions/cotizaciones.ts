@@ -117,6 +117,39 @@ export async function rechazarCotizacion(id: string) {
   return transicionarEstado(id, ['ENVIADA', 'BORRADOR'], 'RECHAZADA');
 }
 
+/**
+ * "Anular / Cancelar" una cotización ya avanzada (aprobada u otro estado no
+ * terminal). No la borra: solo cambia su estado a RECHAZADA, preservando la
+ * auditoría y la correlatividad del código frente a las OC/facturas/despachos
+ * que ya pueda tener asociadas.
+ */
+export async function anularCotizacion(id: string) {
+  return transicionarEstado(id, ['APROBADA', 'ENVIADA', 'VENCIDA', 'AJUSTE_REQUERIDO'], 'RECHAZADA');
+}
+
+/**
+ * Elimina físicamente una cotización — solo permitido en BORRADOR (todavía no
+ * se envió ni comprometió nada aguas abajo). Sus cotizacion_detalles y
+ * cotizaciones_proveedor se eliminan en cascada por FK. Para una cotización
+ * avanzada, usar anularCotizacion en vez de esta función.
+ */
+export async function eliminarCotizacion(id: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('cotizaciones')
+    .delete()
+    .eq('id', id)
+    .eq('estado', 'BORRADOR')
+    .select()
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) {
+    throw new Error('Solo se pueden eliminar cotizaciones en estado BORRADOR. Para una cotización avanzada, anúlala en vez de eliminarla.');
+  }
+  revalidatePath('/admin/cotizaciones');
+}
+
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }

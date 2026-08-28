@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { Search, Plus, Minus, Trash2, Loader2, CheckCircle2, Download, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, Minus, Trash2, Loader2, CheckCircle2, Download, LayoutDashboard, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { Producto, TipoDoc, CotizacionTipoOperacion, Cotizacion } from '@/types/db';
 import { calcularTotalesCotizacion } from '@/lib/erp/pricing';
 import { crearCotizacion } from '@/app/actions/cotizaciones';
+import { buscarClientePorDocumento } from '@/app/actions/clientes';
+import { validarDocumento } from '@/lib/erp/documento';
 import { generarCotizacionPDF } from '@/lib/documents';
 
 interface CarritoItem {
@@ -35,6 +37,7 @@ const CATEGORIAS = [
 
 export function CotizadorClient({ productos }: { productos: Producto[] }) {
   const { showToast } = useToast();
+  const router = useRouter();
 
   const [tipoOperacion, setTipoOperacion] = useState<CotizacionTipoOperacion>('PRODUCTO');
   const [carrito, setCarrito] = useState<CarritoItem[]>([]);
@@ -66,6 +69,8 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
     [carrito]
   );
 
+  const errorFormatoDoc = numDoc ? validarDocumento(tipoDoc, numDoc) : null;
+
   function agregarAlCarrito(prod: Producto) {
     setCarrito((prev) => {
       const existe = prev.find((c) => c.producto.id === prod.id);
@@ -89,10 +94,39 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
   }
 
   async function handleConsultarSunat() {
-    if (!numDoc) return;
+    const errorFormato = validarDocumento(tipoDoc, numDoc);
+    if (errorFormato) {
+      setSunatStatusMsg({ tipo: 'error', texto: errorFormato });
+      return;
+    }
+
     setIsConsultandoSunat(true);
     setSunatStatusMsg(null);
     try {
+      // 1. Primero, ¿ya es un cliente nuestro? (dato real en Supabase, no simulado).
+      //    Coincidencia estricta de num_doc + tipo_doc — no mezcla un DNI con un RUC del mismo número.
+      const resultado = await buscarClientePorDocumento(numDoc, tipoDoc);
+      if (resultado.cliente) {
+        setRazonSocial(resultado.cliente.razon_social);
+        setDireccion(resultado.cliente.direccion);
+        setEmail(resultado.cliente.email);
+        if (resultado.cliente.telefono) setTelefono(resultado.cliente.telefono);
+        const estado = resultado.cliente.estado_contribuyente ?? 'ACTIVO';
+        const condicion = resultado.cliente.condicion ?? 'HABIDO';
+        setSunatStatusMsg({ tipo: 'ok', texto: `✓ Registrado — ${estado} / ${condicion}` });
+        return;
+      }
+
+      if (resultado.tipoDocEncontrado) {
+        setSunatStatusMsg({
+          tipo: 'error',
+          texto: `No existe un ${tipoDoc} con ese número. Está registrado como ${resultado.tipoDocEncontrado} — cambia el tipo de documento.`,
+        });
+        return;
+      }
+
+      // 2. Cliente nuevo: autocompletar razón social/dirección vía el simulador SUNAT
+      //    (entorno de homologación con datos de prueba, no es una consulta real a SUNAT).
       const res = await fetch(`/api/sunat/consulta-ruc?numero=${numDoc}&tipo=${tipoDoc}`);
       const data: ConsultaSunatResult = await res.json();
       if (data.error) {
@@ -100,10 +134,13 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
       } else {
         if (data.razon_social) setRazonSocial(data.razon_social);
         if (data.direccion) setDireccion(data.direccion);
-        setSunatStatusMsg({ tipo: 'ok', texto: `${data.estado ?? 'ACTIVO'} / ${data.condicion ?? 'HABIDO'}` });
+        setSunatStatusMsg({
+          tipo: 'ok',
+          texto: `Cliente nuevo (SUNAT simulado — verifica los datos): ${data.estado ?? 'ACTIVO'} / ${data.condicion ?? 'HABIDO'}`,
+        });
       }
-    } catch {
-      setSunatStatusMsg({ tipo: 'error', texto: 'Error al consultar el servicio SUNAT.' });
+    } catch (err) {
+      setSunatStatusMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'Error al consultar el documento.' });
     } finally {
       setIsConsultandoSunat(false);
     }
@@ -117,6 +154,11 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
     }
     if (!numDoc || !razonSocial || !email || !direccion) {
       showToast('error', 'Completa los datos del cliente (documento, razón social, dirección y correo).');
+      return;
+    }
+    const errorFormato = validarDocumento(tipoDoc, numDoc);
+    if (errorFormato) {
+      showToast('error', errorFormato);
       return;
     }
 
@@ -153,6 +195,21 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
       total: cotizacionGenerada.total ?? 0,
     });
     showToast('success', 'PDF de la cotización descargado.');
+  }
+
+  function handleNuevaCotizacion() {
+    setTipoOperacion('PRODUCTO');
+    setCarrito([]);
+    setCategoriaFiltro('TODAS');
+    setSearchProd('');
+    setTipoDoc('RUC');
+    setNumDoc('');
+    setRazonSocial('');
+    setDireccion('');
+    setEmail('');
+    setTelefono('');
+    setSunatStatusMsg(null);
+    setCotizacionGenerada(null);
   }
 
   return (
@@ -252,22 +309,46 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
             <h2 className="text-sm font-bold text-slate-900">3. Datos del cliente</h2>
             <div className="flex gap-2">
-              <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as TipoDoc)} className="text-xs py-1.5 px-2 rounded-lg border border-slate-300">
+              <select
+                value={tipoDoc}
+                onChange={(e) => {
+                  setTipoDoc(e.target.value as TipoDoc);
+                  setSunatStatusMsg(null);
+                }}
+                className="text-xs py-1.5 px-2 rounded-lg border border-slate-300"
+              >
                 <option value="RUC">RUC</option>
                 <option value="DNI">DNI</option>
               </select>
               <input
                 value={numDoc}
-                onChange={(e) => setNumDoc(e.target.value)}
-                placeholder="Número de documento"
+                onChange={(e) => {
+                  setNumDoc(e.target.value.replace(/\D/g, ''));
+                  setSunatStatusMsg(null);
+                }}
+                inputMode="numeric"
+                maxLength={tipoDoc === 'DNI' ? 8 : 11}
+                placeholder={tipoDoc === 'DNI' ? 'DNI (8 dígitos)' : 'RUC (11 dígitos)'}
                 className="flex-1 text-xs py-1.5 px-3 rounded-lg border border-slate-300"
               />
-              <Button type="button" variant="outline" size="sm" isLoading={isConsultandoSunat} onClick={handleConsultarSunat} className="text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                isLoading={isConsultandoSunat}
+                disabled={Boolean(errorFormatoDoc)}
+                onClick={handleConsultarSunat}
+                className="text-xs"
+              >
                 Consultar
               </Button>
             </div>
-            {sunatStatusMsg && (
-              <p className={`text-[11px] font-semibold ${sunatStatusMsg.tipo === 'ok' ? 'text-emerald-700' : 'text-rose-600'}`}>{sunatStatusMsg.texto}</p>
+            {errorFormatoDoc ? (
+              <p className="text-[11px] font-semibold text-rose-600">{errorFormatoDoc}</p>
+            ) : (
+              sunatStatusMsg && (
+                <p className={`text-[11px] font-semibold ${sunatStatusMsg.tipo === 'ok' ? 'text-emerald-700' : 'text-rose-600'}`}>{sunatStatusMsg.texto}</p>
+              )
             )}
             <input value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} placeholder="Razón social / Nombre completo" className="w-full text-xs py-1.5 px-3 rounded-lg border border-slate-300" />
             <input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Dirección / Fundo" className="w-full text-xs py-1.5 px-3 rounded-lg border border-slate-300" />
@@ -333,15 +414,15 @@ export function CotizadorClient({ productos }: { productos: Producto[] }) {
               cotización final.
             </p>
             <div className="flex flex-col gap-2">
+              <Button onClick={() => router.push('/admin/cotizaciones')} className="text-xs">
+                <LayoutDashboard className="w-3.5 h-3.5" /> Ir al Panel de Cotizaciones
+              </Button>
+              <Button variant="outline" onClick={handleNuevaCotizacion} className="text-xs">
+                <RotateCcw className="w-3.5 h-3.5" /> Crear otra cotización
+              </Button>
               <Button variant="outline" onClick={handleDescargarPDF} className="text-xs">
                 <Download className="w-3.5 h-3.5" /> Descargar referencia PDF
               </Button>
-              <Link href="/admin/cotizaciones" target="_blank">
-                <Button variant="outline" className="text-xs w-full">
-                  <ExternalLink className="w-3.5 h-3.5" /> Ver en Panel Administrativo
-                </Button>
-              </Link>
-              <Button onClick={() => setCotizacionGenerada(null)}>Cerrar</Button>
             </div>
           </div>
         </div>
