@@ -1,6 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AgroErpProvider } from "@/context/AgroErpContext";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const geistSans = Geist({
@@ -26,9 +25,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        <ToastProvider>
-          <AgroErpProvider>{children}</AgroErpProvider>
-        </ToastProvider>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

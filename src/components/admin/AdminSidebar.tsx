@@ -13,14 +13,18 @@ import {
   Package,
   Truck,
   Users,
-  ExternalLink,
   ChevronRight,
 } from 'lucide-react';
-import { useAgroErp } from '@/context/AgroErpContext';
+import { Metricas } from '@/lib/queries/metricas';
 
-export function AdminSidebar() {
+interface Props {
+  metricas: Metricas;
+  usuarioNombre: string;
+  usuarioRol: string;
+}
+
+export function AdminSidebar({ metricas, usuarioNombre, usuarioRol }: Props) {
   const pathname = usePathname();
-  const { metricas } = useAgroErp();
 
   const menu = [
     { name: 'Dashboard Principal', href: '/admin', icon: LayoutDashboard },
@@ -112,11 +116,16 @@ export function AdminSidebar() {
       <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center text-white text-xs font-bold shadow-inner">
-            CM
+            {usuarioNombre
+              .split(' ')
+              .slice(0, 2)
+              .map((p) => p[0])
+              .join('')
+              .toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-slate-900 truncate">Ing. Carlos Mendoza</p>
-            <p className="text-[10px] text-emerald-700 font-semibold truncate">Administrador General</p>
+            <p className="text-xs font-bold text-slate-900 truncate">{usuarioNombre}</p>
+            <p className="text-[10px] text-emerald-700 font-semibold truncate">{usuarioRol}</p>
           </div>
         </div>
 

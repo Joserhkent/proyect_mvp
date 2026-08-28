@@ -1,7 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+// Next.js 16 renombró middleware.ts -> proxy.ts (y `middleware` -> `proxy`);
+// el archivo antiguo se ignoraba silenciosamente, dejando TODAS las rutas
+// protegidas (incluido /admin) accesibles sin sesión. Ver node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -45,8 +48,11 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    // Si intenta entrar a /admin y no es ADMIN -> Denegar acceso y mandar a /cotizador
-    if (usuarioBD?.rol !== 'ADMIN') {
+    // El panel /admin aloja también las acciones de compras/finanzas/almacén
+    // (no hay portales dedicados para esos roles todavía) -> Denegar solo a
+    // TECNICO/CLIENTE, que tienen su propio portal.
+    const ROLES_CON_ACCESO_ADMIN = ['ADMIN', 'VENTAS', 'ALMACEN', 'FINANZAS']
+    if (!ROLES_CON_ACCESO_ADMIN.includes(usuarioBD?.rol ?? '')) {
       return NextResponse.redirect(new URL('/cotizador', request.url))
     }
   }

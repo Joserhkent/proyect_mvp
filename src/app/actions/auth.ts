@@ -21,7 +21,7 @@ export async function login(formData: FormData) {
   }
 
   // 2. Consultar el ROL en la tabla public.usuarios usando el UUID del usuario
-  const { data: usuarioBD, error: roleError } = await supabase
+  const { data: usuarioBD } = await supabase
     .from('usuarios')
     .select('rol')
     .eq('id', authData.user.id)
@@ -34,10 +34,17 @@ export async function login(formData: FormData) {
     targetPath = '/admin'
   } else if (usuarioBD?.rol === 'TECNICO') {
     targetPath = '/tecnico'
-  } else if (usuarioBD?.rol === 'VENDEDOR') {
+  } else if (usuarioBD?.rol === 'VENTAS') {
     targetPath = '/cotizador'
   }
 
   revalidatePath('/', 'layout')
   redirect(targetPath)
+}
+
+export async function logout() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  revalidatePath('/', 'layout')
+  redirect('/')
 }
