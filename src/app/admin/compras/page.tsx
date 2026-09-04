@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShoppingCart, CheckCircle2, Truck, FileCheck, Search, Eye, Package } from 'lucide-react';
+import { ShoppingCart, CheckCircle2, Truck, FileCheck, Search, Eye, Package, CreditCard, Send } from 'lucide-react';
 import { useAgroErp } from '@/context/AgroErpContext';
 import { OrdenCompra } from '@/types/erp';
 import { Button } from '@/components/ui/Button';
@@ -10,7 +10,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export default function AdminComprasPage() {
-  const { ordenesCompra, facturasCompras, recepcionarOCYFacturaProveedor, actualizarEstadoOC } = useAgroErp();
+  const { ordenesCompra, facturasCompras, recepcionarOCYFacturaProveedor, actualizarEstadoOC, registrarPagoOC } = useAgroErp();
 
   const [search, setSearch] = useState('');
   const [selectedOC, setSelectedOC] = useState<OrdenCompra | null>(null);
@@ -18,6 +18,8 @@ export default function AdminComprasPage() {
   const [numeroFacturaProv, setNumeroFacturaProv] = useState('F001-0009842');
   const [montoFactura, setMontoFactura] = useState<number>(0);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+  const [voucherFile, setVoucherFile] = useState<File | null>(null);
 
   const filteredOC = ordenesCompra.filter((oc) =>
     oc.numero.toLowerCase().includes(search.toLowerCase()) ||
@@ -29,6 +31,16 @@ export default function AdminComprasPage() {
     setSelectedOC(oc);
     setMontoFactura(oc.monto_total);
     setIsRecepcionModalOpen(true);
+  };
+
+  const handleRegistrarPago = async () => {
+    if (!selectedOC || !voucherFile) return;
+    const success = await registrarPagoOC(selectedOC.id, voucherFile);
+    if (success) {
+      setIsPagoModalOpen(false);
+      setSuccessMsg(`Pago registrado para ${selectedOC.numero}. La orden está lista para enviarse al proveedor.`);
+      setVoucherFile(null);
+    }
   };
 
   const handleConfirmarRecepcion = () => {
@@ -156,7 +168,30 @@ export default function AdminComprasPage() {
                         <Eye className="w-3.5 h-3.5" />
                       </button>
 
-                      {oc.estado !== 'RECIBIDO' && (
+                      {oc.estado === 'PENDIENTE_PAGO' && (
+                        <Button
+                          size="sm"
+                          onClick={() => { setSelectedOC(oc); setVoucherFile(null); setIsPagoModalOpen(true); }}
+                          className="text-[11px] h-7 px-2"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          Registrar pago
+                        </Button>
+                      )}
+
+                      {oc.estado === 'PAGADO' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => actualizarEstadoOC(oc.id, 'ENVIADO')}
+                          className="text-[11px] h-7 px-2"
+                        >
+                          <Send className="w-3 h-3" />
+                          Enviar al proveedor
+                        </Button>
+                      )}
+
+                      {oc.estado === 'ENVIADO' && (
                         <Button
                           size="sm"
                           onClick={() => handleOpenRecepcion(oc)}
@@ -174,6 +209,39 @@ export default function AdminComprasPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal Recepcionar OC y Registrar Factura de Proveedor */}
+      {isPagoModalOpen && selectedOC && (
+        <Modal
+          isOpen={isPagoModalOpen}
+          onClose={() => setIsPagoModalOpen(false)}
+          title={`Registrar pago: ${selectedOC.numero}`}
+          description={`Proveedor: ${selectedOC.proveedor_razon_social}`}
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-orange-50 rounded-xl border border-orange-200 text-orange-900">
+              La orden pasará a <strong>PAGADO</strong>. Después podrás enviarla al proveedor.
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Voucher de transferencia</label>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(event) => setVoucherFile(event.target.files?.[0] ?? null)}
+                className="w-full p-2 rounded-lg border border-slate-300 text-slate-900 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1"
+              />
+              {voucherFile && <p className="mt-1 text-slate-500">Archivo seleccionado: {voucherFile.name}</p>}
+            </div>
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="outline" onClick={() => setIsPagoModalOpen(false)}>Cancelar</Button>
+              <Button onClick={handleRegistrarPago} disabled={!voucherFile}>
+                <CreditCard className="w-3.5 h-3.5" />
+                Confirmar pago
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal Recepcionar OC y Registrar Factura de Proveedor */}
       {isRecepcionModalOpen && selectedOC && (

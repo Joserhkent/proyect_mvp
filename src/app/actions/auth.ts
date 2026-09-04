@@ -7,10 +7,13 @@ import { createClient } from '@/lib/supabase/server'
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const password = String(formData.get('password') ?? '')
 
-  // 1. Iniciar sesión en Auth
+  if (!email || !password) {
+    return { error: 'Correo y contraseña requeridos' }
+  }
+
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -20,23 +23,18 @@ export async function login(formData: FormData) {
     return { error: 'Correo o contraseña incorrectos' }
   }
 
-  // 2. Consultar el ROL en la tabla public.usuarios usando el UUID del usuario
   const { data: usuarioBD, error: roleError } = await supabase
     .from('usuarios')
     .select('rol')
-    .eq('id', authData.user.id)
-    .single()
+    .eq('email', email)
+    .maybeSingle()
 
-  // 3. Determinar la ruta según el rol (Si no tiene registro aún, por defecto a cotizador)
-  let targetPath = '/cotizador'
-
-  if (usuarioBD?.rol === 'ADMIN') {
-    targetPath = '/admin'
-  } else if (usuarioBD?.rol === 'TECNICO') {
-    targetPath = '/tecnico'
-  } else if (usuarioBD?.rol === 'VENDEDOR') {
-    targetPath = '/cotizador'
+  if (roleError && !usuarioBD) {
+    console.warn('Usuario no encontrado en public.usuarios para login:', email)
   }
+
+  const normalizedRole = usuarioBD?.rol ?? 'TECNICO'
+  const targetPath = normalizedRole === 'ADMIN' ? '/admin' : '/tecnico'
 
   revalidatePath('/', 'layout')
   redirect(targetPath)

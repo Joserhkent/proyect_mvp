@@ -23,32 +23,52 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 1. Obtener el usuario autenticado
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
 
-  // Si no está autenticado e intenta entrar a una ruta protegida -> Redirigir al Login ('/')
+  // Unauthenticated redirect to login
   if (!user && pathname !== '/') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Si está autenticado e intenta ir a la pantalla de login -> Redirigir a su panel
+  // Authenticated user at login screen redirect to home route based on Role
   if (user && pathname === '/') {
-    return NextResponse.redirect(new URL('/admin', request.url)) // O su dashboard principal
-  }
-
-  // 2. Control de acceso por Rutas (Ejemplo para /admin)
-  if (user && pathname.startsWith('/admin')) {
     const { data: usuarioBD } = await supabase
       .from('usuarios')
       .select('rol')
-      .eq('id', user.id)
-      .single()
+      .eq('email', user.email)
+      .maybeSingle()
 
-    // Si intenta entrar a /admin y no es ADMIN -> Denegar acceso y mandar a /cotizador
-    if (usuarioBD?.rol !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/cotizador', request.url))
+    const rol = usuarioBD?.rol ?? 'TECNICO'
+    const targetPath = rol === 'ADMIN' ? '/admin' : '/tecnico'
+
+    return NextResponse.redirect(new URL(targetPath, request.url))
+  }
+
+  // Protect paths by Role
+  if (user && pathname !== '/') {
+    const { data: usuarioBD } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    const rol = usuarioBD?.rol ?? 'TECNICO'
+
+    // Only ADMINs can access /admin routes
+    if (pathname.startsWith('/admin') && rol !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/tecnico', request.url))
     }
+
+    // Redirect obsolete routes (/cotizador) to default user dashboard
+    if (pathname.startsWith('/cotizador')) {
+      const targetPath = rol === 'ADMIN' ? '/admin' : '/tecnico'
+      return NextResponse.redirect(new URL(targetPath, request.url))
+    }
+  }
+
+  if (error) {
+    console.warn('Middleware auth error:', error.message)
   }
 
   return supabaseResponse

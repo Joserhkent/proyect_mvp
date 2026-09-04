@@ -2,17 +2,20 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, ShoppingCart, Wrench, Receipt, CheckCircle2, Eye, Filter } from 'lucide-react';
+import { Plus, Search, ShoppingCart, Wrench, Receipt, CheckCircle2, Eye, Filter, Pencil, Trash2, Download } from 'lucide-react';
 import { useAgroErp } from '@/context/AgroErpContext';
-import { Cotizacion } from '@/types/erp';
+import { Cotizacion, Producto } from '@/types/erp';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
+import { generarCotizacionPDF } from '@/lib/documents';
 
 export default function AdminCotizacionesPage() {
   const {
     cotizaciones,
+    productos,
+    editarCotizacion,
     aprobarCotizacion,
     generarOrdenesCompraDesdeCotizacion,
     asignarOrdenTrabajo,
@@ -23,6 +26,11 @@ export default function AdminCotizacionesPage() {
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('TODOS');
   const [selectedCot, setSelectedCot] = useState<Cotizacion | null>(null);
+  const [editingCot, setEditingCot] = useState<Cotizacion | null>(null);
+  const [editDetails, setEditDetails] = useState<Cotizacion['detalles']>([]);
+  const [editTipoOperacion, setEditTipoOperacion] = useState<Cotizacion['tipo_operacion']>('SOLO_VENTA');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [editProductSearch, setEditProductSearch] = useState('');
 
   // Modal Asignar Técnico
   const [isAsignarModalOpen, setIsAsignarModalOpen] = useState(false);
@@ -46,20 +54,120 @@ export default function AdminCotizacionesPage() {
     return matchSearch && matchEstado;
   });
 
-  const handleAprobar = (id: string) => {
-    aprobarCotizacion(id);
-    setActionSuccessMsg('Cotización marcada como APROBADA exitosamente.');
-    setTimeout(() => setActionSuccessMsg(null), 3000);
+  const handleAprobar = async (id: string) => {
+    setIsProcessing(true);
+    const success = await aprobarCotizacion(id);
+
+    if (success) {
+      setActionSuccessMsg('Cotización marcada como APROBADA exitosamente.');
+      setTimeout(() => setActionSuccessMsg(null), 3000);
+    } else {
+      showToast('error', 'No se pudo aprobar la cotización. Revisa las políticas RLS y el estado de la base de datos.');
+    }
+    setIsProcessing(false);
   };
 
-  const handleGenerarOC = (id: string) => {
+  const handleGenerarOC = async (id: string) => {
     setIsProcessing(true);
-    setTimeout(() => {
-      const res = generarOrdenesCompraDesdeCotizacion(id);
+    try {
+      const res = await generarOrdenesCompraDesdeCotizacion(id);
+      if (res.error) {
+        showToast('error', res.error);
+      } else {
+        setActionSuccessMsg(`¡Se generaron automáticamente ${res.creadas} Órdenes de Compra agrupadas por Proveedor!`);
+        setTimeout(() => setActionSuccessMsg(null), 4000);
+      }
+    } finally {
       setIsProcessing(false);
-      setActionSuccessMsg(`¡Se generaron automáticamente ${res.creadas} Órdenes de Compra agrupadas por Proveedor!`);
+    }
+  };
+
+  const openEditModal = (cotizacion: Cotizacion) => {
+    setEditingCot(cotizacion);
+    setEditDetails(cotizacion.detalles.map((detalle) => ({ ...detalle })));
+    setEditTipoOperacion(cotizacion.tipo_operacion);
+    setSelectedProductId('');
+    setEditProductSearch('');
+    setSelectedCot(null);
+  };
+
+  const removeEditDetail = (detailId: string) => {
+    setEditDetails((prev) => prev.filter((detalle) => detalle.id !== detailId));
+  };
+
+  const addEditDetail = () => {
+    const producto = productos.find((item) => item.id === selectedProductId);
+    if (!producto) return;
+
+    setEditDetails((prev) => {
+      const existing = prev.find((detalle) => detalle.producto_id === producto.id);
+      if (existing) {
+        return prev.map((detalle) => detalle.producto_id === producto.id
+          ? {
+            ...detalle,
+            cantidad: detalle.cantidad + 1,
+            subtotal: (detalle.cantidad + 1) * detalle.precio_unitario,
+          }
+          : detalle
+        );
+      }
+
+      const nuevoDetalle: Cotizacion['detalles'][number] = {
+        id: `edit_${Date.now()}_${producto.id}`,
+        producto_id: producto.id,
+        producto_codigo: producto.codigo,
+        producto_nombre: producto.nombre,
+        proveedor_id: producto.proveedor_id,
+        cantidad: 1,
+        precio_unitario: producto.precio_venta,
+        costo_unitario: producto.costo_compra,
+        subtotal: producto.precio_venta,
+      };
+      return [...prev, nuevoDetalle];
+    });
+    setSelectedProductId('');
+    setEditProductSearch('');
+  };
+
+  const productosEditables = productos.filter((producto) => {
+    const searchValue = editProductSearch.toLowerCase().trim();
+    if (!searchValue) return true;
+    return [producto.codigo, producto.nombre, producto.descripcion]
+      .some((value) => value.toLowerCase().includes(searchValue));
+  });
+
+  const updateEditDetail = (detailId: string, field: 'cantidad' | 'precio_unitario', value: number) => {
+    setEditDetails((prev) => prev.map((detalle) => {
+      if (detalle.id !== detailId) return detalle;
+      const cantidad = field === 'cantidad' ? Math.max(1, value) : detalle.cantidad;
+      const precio = field === 'precio_unitario' ? Math.max(0, value) : detalle.precio_unitario;
+      return { ...detalle, cantidad, precio_unitario: precio, subtotal: cantidad * precio };
+    }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingCot || editDetails.length === 0) {
+      showToast('error', 'La cotización debe tener al menos un producto.');
+      return;
+    }
+    setIsProcessing(true);
+    const subtotal = editDetails.reduce((sum, detalle) => sum + detalle.subtotal, 0);
+    const igv = subtotal * 0.18;
+    const success = await editarCotizacion(editingCot.id, {
+      tipo_operacion: editTipoOperacion,
+      subtotal,
+      igv,
+      total: subtotal + igv,
+      detalles: editDetails,
+    });
+    setIsProcessing(false);
+    if (success) {
+      setEditingCot(null);
+      setActionSuccessMsg('Cotización actualizada y enviada nuevamente como pendiente.');
       setTimeout(() => setActionSuccessMsg(null), 4000);
-    }, 600);
+    } else {
+      showToast('error', 'No se pudo actualizar la cotización.');
+    }
   };
 
   const handleConfirmarAsignacionTecnico = () => {
@@ -140,6 +248,7 @@ export default function AdminCotizacionesPage() {
           >
             <option value="TODOS">Todos los estados</option>
             <option value="PENDIENTE">Pendientes</option>
+            <option value="RECHAZADA">Rechazadas</option>
             <option value="APROBADA">Aprobadas</option>
             <option value="EN_COMPRAS">En Compras</option>
             <option value="EN_INSTALACION">En Instalación</option>
@@ -209,11 +318,22 @@ export default function AdminCotizacionesPage() {
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
+                        {(cot.estado === 'PENDIENTE' || cot.estado === 'RECHAZADA') && (
+                          <button
+                            onClick={() => openEditModal(cot)}
+                            title="Editar cotización"
+                            className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
                         {/* Paso Aprobación */}
                         {cot.estado === 'PENDIENTE' && (
                           <Button
                             size="sm"
                             onClick={() => handleAprobar(cot.id)}
+                            isLoading={isProcessing}
                             className="text-[11px] h-7 px-2"
                           >
                             <CheckCircle2 className="w-3 h-3" />
@@ -338,6 +458,122 @@ export default function AdminCotizacionesPage() {
             <div className="flex justify-end gap-2 pt-3">
               <Button variant="secondary" onClick={() => setSelectedCot(null)}>
                 Cerrar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => generarCotizacionPDF(selectedCot)}
+                title="Descargar PDF de la cotización"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Descargar PDF
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Editar Cotización */}
+      {editingCot && (
+        <Modal
+          isOpen={Boolean(editingCot)}
+          onClose={() => setEditingCot(null)}
+          title={`Editar Cotización: ${editingCot.numero}`}
+          description="Corrige los productos o precios y vuelve a enviarla al cliente para su aprobación."
+          maxWidth="lg"
+        >
+          <div className="space-y-4 text-xs">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Tipo de operación</label>
+              <select
+                value={editTipoOperacion}
+                onChange={(event) => setEditTipoOperacion(event.target.value as Cotizacion['tipo_operacion'])}
+                className="w-full p-2 rounded-lg border border-slate-300 bg-white text-slate-900"
+              >
+                <option value="SOLO_VENTA">Solo venta</option>
+                <option value="VENTA_ARMADO">Venta + armado</option>
+              </select>
+            </div>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {editDetails.map((detalle) => (
+                <div key={detalle.id} className="grid grid-cols-[1fr_80px_100px_auto_auto] gap-2 items-end p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="font-bold text-slate-900 block">{detalle.producto_nombre}</span>
+                    <span className="text-[10px] text-slate-500">{detalle.producto_codigo}</span>
+                  </div>
+                  <label className="text-slate-500">Cantidad
+                    <input
+                      type="number"
+                      min="1"
+                      value={detalle.cantidad}
+                      onChange={(event) => updateEditDetail(detalle.id, 'cantidad', Number(event.target.value))}
+                      className="w-full mt-1 p-1.5 rounded border border-slate-300 text-slate-900"
+                    />
+                  </label>
+                  <label className="text-slate-500">Precio unitario
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={detalle.precio_unitario}
+                      onChange={(event) => updateEditDetail(detalle.id, 'precio_unitario', Number(event.target.value))}
+                      className="w-full mt-1 p-1.5 rounded border border-slate-300 text-slate-900"
+                    />
+                  </label>
+                  <span className="font-bold text-emerald-700 pb-2">S/ {detalle.subtotal.toFixed(2)}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeEditDetail(detalle.id)}
+                    title="Eliminar producto de la cotización"
+                    className="p-1.5 mb-1 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 items-end border-t border-slate-200 pt-3">
+              <label className="flex-1 text-slate-500">Agregar producto
+                <div className="relative mt-1">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={editProductSearch}
+                    onChange={(event) => setEditProductSearch(event.target.value)}
+                    placeholder="Buscar por código, nombre o descripción"
+                    className="w-full pl-8 pr-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-900"
+                  />
+                </div>
+                <select
+                  value={selectedProductId}
+                  onChange={(event) => setSelectedProductId(event.target.value)}
+                  className="w-full mt-2 p-2 rounded-lg border border-slate-300 bg-white text-slate-900"
+                >
+                  <option value="">Selecciona un producto</option>
+                  {productosEditables.map((producto: Producto) => (
+                    <option key={producto.id} value={producto.id}>
+                      {producto.codigo} - {producto.nombre} - {producto.descripcion}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addEditDetail}
+                disabled={!selectedProductId}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Agregar
+              </Button>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
+              <Button variant="outline" onClick={() => setEditingCot(null)}>Cancelar</Button>
+              <Button onClick={handleSaveEdit} isLoading={isProcessing}>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Guardar y reenviar
               </Button>
             </div>
           </div>

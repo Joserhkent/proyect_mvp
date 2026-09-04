@@ -1,21 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Package, Search } from 'lucide-react';
-import { useAgroErp } from '@/context/AgroErpContext';
+import React, { useState, useEffect } from 'react';
+import { Package, Search, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { buscarProductos } from '@/lib/services/productos';
+import type { Producto } from '@/types/erp';
 
 export default function AdminInventarioPage() {
-  const { productos } = useAgroErp();
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoria, setCategoria] = useState('TODAS');
 
+  // Carga inicial y búsqueda remota
+  useEffect(() => {
+    let active = true;
+
+    async function cargarDatos() {
+      setLoading(true);
+      const data = await buscarProductos(search);
+      if (active) {
+        setProductos(data);
+        setLoading(false);
+      }
+    }
+
+    const timer = setTimeout(() => {
+      cargarDatos();
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [search]);
+
+  // Filtro por categoría en cliente
   const filtered = productos.filter((p) => {
-    const matchSearch =
-      p.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      p.codigo.toLowerCase().includes(search.toLowerCase());
-    const matchCat = categoria === 'TODAS' || p.categoria === categoria;
-    return matchSearch && matchCat;
+    return categoria === 'TODAS' || p.categoria === categoria;
   });
 
   return (
@@ -38,7 +60,7 @@ export default function AdminInventarioPage() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por nombre o código..."
+            placeholder="Buscar por SKU o nombre..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -56,6 +78,11 @@ export default function AdminInventarioPage() {
           <option value="TUBERIAS_VALVULAS">Tuberías & Válvulas</option>
           <option value="INSUMOS_QUIMICOS">Insumos Químicos</option>
           <option value="SENSORES_CONTROLADORES">Sensores & Controladores</option>
+          <option value="FERTILIZANTE">Fertilizantes</option>
+          <option value="SEMILLA">Semillas</option>
+          <option value="AGROQUIMICO">Agroquímicos</option>
+          <option value="HERRAMIENTA">Herramientas</option>
+          <option value="OTRO">Otros</option>
         </select>
       </div>
 
@@ -65,16 +92,25 @@ export default function AdminInventarioPage() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] border-b border-slate-200">
               <tr>
-                <th className="p-4">Código / Producto</th>
+                <th className="p-4">SKU / Producto</th>
                 <th className="p-4">Categoría</th>
-                <th className="p-4">Proveedor Asignado</th>
-                <th className="p-4 text-right">Costo Compra</th>
-                <th className="p-4 text-right">Precio Venta</th>
+                <th className="p-4 text-right">Último Costo</th>
+                <th className="p-4 text-right">Precio Ref. Venta</th>
                 <th className="p-4 text-center">Stock Actual</th>
+                <th className="p-4 text-center">Stock Reservado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                      <span>Cargando productos...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
                     <EmptyState
@@ -84,39 +120,44 @@ export default function AdminInventarioPage() {
                     />
                   </td>
                 </tr>
+              ) : (
+                filtered.map((prod) => (
+                  <tr key={prod.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4">
+                      <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded inline-block mb-1">
+                        {prod.sku}
+                      </span>
+                      <span className="font-bold text-slate-900 block max-w-sm leading-snug">
+                        {prod.nombre}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-slate-600 font-medium">
+                      {prod.categoria.replace(/_/g, ' ')}
+                    </td>
+
+                    <td className="p-4 text-right text-slate-500">
+                      S/ {prod.ultimo_costo_compra.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="p-4 text-right font-bold text-emerald-700">
+                      S/ {prod.ultimo_precio_venta.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="p-4 text-center">
+                      <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                        {prod.stock_actual} {prod.unidad_medida}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-center">
+                      <span className="font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                        {prod.stock_reservado} {prod.unidad_medida}
+                      </span>
+                    </td>
+                  </tr>
+                ))
               )}
-              {filtered.map((prod) => (
-                <tr key={prod.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4">
-                    <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded inline-block mb-1">
-                      {prod.codigo}
-                    </span>
-                    <span className="font-bold text-slate-900 block max-w-sm leading-snug">{prod.nombre}</span>
-                  </td>
-
-                  <td className="p-4 text-slate-600 font-medium">
-                    {prod.categoria.replace('_', ' ')}
-                  </td>
-
-                  <td className="p-4 text-slate-700">
-                    {prod.proveedor_nombre || 'Proveedor General'}
-                  </td>
-
-                  <td className="p-4 text-right text-slate-500">
-                    S/ {prod.costo_compra.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                  </td>
-
-                  <td className="p-4 text-right font-bold text-emerald-700">
-                    S/ {prod.precio_venta.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                  </td>
-
-                  <td className="p-4 text-center">
-                    <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                      {prod.stock} {prod.unidad_medida}
-                    </span>
-                  </td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>

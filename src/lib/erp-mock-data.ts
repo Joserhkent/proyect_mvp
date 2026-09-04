@@ -10,6 +10,16 @@ import {
   Usuario,
 } from '@/types/erp';
 
+/**
+ * Legacy seed data kept only as reference / migration backup.
+ * The application must read business data from Supabase tables, not from this file.
+ * Importing this file in runtime is intentionally blocked to avoid drift and inconsistency.
+ */
+if (process.env.NODE_ENV !== 'test') {
+  // eslint-disable-next-line no-console
+  console.warn('Legacy mock ERP data is not a runtime data source. Use Supabase tables instead.');
+}
+
 export const INITIAL_USUARIOS: Usuario[] = [
   {
     id: 'usr_admin',
