@@ -1,3 +1,6 @@
+// ========================================================
+// USUARIOS Y ROLES
+// ========================================================
 export type UserRole = 'ADMIN' | 'TECNICO';
 
 export interface Usuario {
@@ -12,6 +15,9 @@ export interface Usuario {
   updated_at?: string;
 }
 
+// ========================================================
+// ENTIDADES EXTERNAS (SUNAT, CLIENTES, PROVEEDORES)
+// ========================================================
 export type TipoDocumento = 'RUC' | 'DNI';
 
 export interface ConsultaSunatResult {
@@ -47,9 +53,10 @@ export interface Cliente {
 
 export interface Proveedor {
   id: string;
-  ruc: string;
+  ruc?: string;
+  num_doc?: string;
   razon_social: string;
-  email: string;
+  email?: string;
   telefono?: string;
   contacto?: string;
   direccion?: string;
@@ -60,6 +67,9 @@ export interface Proveedor {
   created_at?: string;
 }
 
+// ========================================================
+// PRODUCTOS Y KITS
+// ========================================================
 export type ProductoCategoria =
   | 'EQUIPO_FERTILIZACION'
   | 'BOMBAS_INYECTORES'
@@ -74,42 +84,87 @@ export type ProductoCategoria =
 
 export interface Producto {
   id: string;
-  sku: string; // Código único del producto
+  sku: string;
   nombre: string;
   descripcion?: string;
   categoria: ProductoCategoria;
-  unidad_medida: string; // UNIDAD, SACO, GALONERA, etc.
+  unidad_medida: string;
   ultimo_costo_compra: number;
   costo_promedio: number;
-  ultimo_precio_venta: number; // Referencia de mercado, no precio fijo
+  ultimo_precio_venta: number;
   stock_actual: number;
   stock_reservado: number;
   stock_minimo: number;
   created_at?: string;
 }
 
-export type CotizacionProveedorEstado = 'PENDIENTE' | 'RECIBIDA' | 'ACEPTADA' | 'RECHAZADA';
+export interface KitDetalle {
+  id: string;
+  kit_id: string;
+  producto_id: string;
+  cantidad: number;
+  producto?: Producto;
+  created_at?: string;
+}
+
+export interface Kit {
+  id: string;
+  nombre: string;
+  codigo: string;
+  descripcion?: string;
+  created_at?: string;
+  detalles?: KitDetalle[];
+}
+
+// ========================================================
+// COTIZACIONES Y REQUERIMIENTOS A PROVEEDORES
+// ========================================================
+export type CotizacionProveedorEstado =
+  | 'ENVIADO'
+  | 'PENDIENTE'
+  | 'RECIBIDA'
+  | 'RESPONDIDO'
+  | 'ACEPTADA'
+  | 'APROBADO'
+  | 'RECHAZADA'
+  | 'RECHAZADO';
+
+export type CanalEnvioCotizacion = 'WHATSAPP' | 'EMAIL';
+
+export interface ItemRequerimiento {
+  id?: string;
+  producto_id: string;
+  producto_nombre: string;
+  cantidad: number;
+  observacion?: string;
+}
 
 export interface CotizacionProveedor {
   id: string;
-  cotizacion_id: string;
+  cotizacion_id?: string;
   proveedor_id: string;
   proveedor_nombre?: string;
+  proveedor?: Proveedor;
   detalle_id?: string;
   producto_id: string;
   producto_nombre?: string;
   producto_sku?: string;
   cantidad_cotizada: number;
-  costo_unitario: number;
-  descuento_aplicado?: number;
-  fecha_entrega_proveedor?: string;
-  dias_entrega: number;
-  es_ganadora: boolean;
+  costo_unitario?: number | null;
+  descuento_aplicado?: number | null;
+  fecha_entrega_proveedor?: string | null;
+  dias_entrega?: number | null;
+  es_ganadora?: boolean;
   estado: CotizacionProveedorEstado;
-  fecha_respuesta?: string;
+  canal_envio?: CanalEnvioCotizacion;
+  notas?: string | null;
+  fecha_respuesta?: string | null;
   created_at?: string;
 }
 
+// ========================================================
+// COTIZACIONES CLIENTE
+// ========================================================
 export type CotizacionTipoOperacion = 'PRODUCTO' | 'PROYECTO_MESA';
 export type CotizacionEstado =
   | 'BORRADOR'
@@ -127,23 +182,23 @@ export interface CotizacionDetalle {
   producto_id: string;
   producto_sku?: string;
   producto_nombre?: string;
-  oferta_ganadora_id?: string; // Oferta ganadora del proveedor
+  oferta_ganadora_id?: string;
   cantidad: number;
-  precio_unitario: number; // Margen dinámico asignado por el Admin
+  precio_unitario: number;
   descuento_pct?: number;
   subtotal: number;
 }
 
 export interface Cotizacion {
   id: string;
-  codigo?: string; // ej. COT-2026-001
+  codigo?: string;
   cliente_id?: string;
   cliente_num_doc?: string;
   cliente_razon_social?: string;
-  cliente_direccion?: string;       // <--- Agregado
-  cliente_email?: string;           // <--- Agregado
-  cliente_telefono?: string;        // <--- Agregado
-  cliente_departamento?: string;    // <--- Agregado
+  cliente_direccion?: string;
+  cliente_email?: string;
+  cliente_telefono?: string;
+  cliente_departamento?: string;
   vendedor_id?: string;
   tipo_operacion: CotizacionTipoOperacion;
   estado: CotizacionEstado;
@@ -154,7 +209,7 @@ export interface Cotizacion {
   validez_dias: number;
   fecha_emision?: string;
   fecha_expiracion?: string;
-  fecha_entrega_estimada?: string; // Calculado del proveedor con entrega más tardía
+  fecha_entrega_estimada?: string;
   dias_entrega_estimados?: number;
   ingreso_manual_fecha?: boolean;
   created_at?: string;
@@ -163,6 +218,9 @@ export interface Cotizacion {
   ofertas_proveedores?: CotizacionProveedor[];
 }
 
+// ========================================================
+// COMPRAS Y ORDENES
+// ========================================================
 export type OrdenCompraEstado =
   | 'BORRADOR'
   | 'PENDIENTE_PAGO'
@@ -190,7 +248,7 @@ export interface OrdenCompraDetalle {
 
 export interface OrdenCompra {
   id: string;
-  codigo?: string; // OC-2026-001
+  codigo?: string;
   proveedor_id: string;
   proveedor_ruc?: string;
   proveedor_razon_social?: string;
@@ -228,6 +286,9 @@ export interface FacturaCompra {
   created_at?: string;
 }
 
+// ========================================================
+// FACTURACIÓN ELECTRÓNICA SUNAT
+// ========================================================
 export type ComprobanteSunatTipo = 'FACTURA' | 'BOLETA';
 export type ComprobanteSunatEstado = 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'OBSERVADO';
 
@@ -249,6 +310,9 @@ export interface ComprobanteSunat {
   created_at?: string;
 }
 
+// ========================================================
+// ORDENES DE TRABAJO Y BITÁCORA
+// ========================================================
 export type OrdenTrabajoEstado = 'CREADA' | 'EN_PROGRESO' | 'PAUSADA' | 'COMPLETADA' | 'CANCELADA';
 export type EtapaBitacora =
   | 'VISITA_INICIAL'
@@ -271,7 +335,7 @@ export interface BitacoraItem {
 
 export interface OrdenTrabajo {
   id: string;
-  codigo?: string; // OT-2026-001
+  codigo?: string;
   cliente_id: string;
   cliente_nombre?: string;
   cotizacion_origen_id?: string;

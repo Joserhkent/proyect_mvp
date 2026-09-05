@@ -2,16 +2,31 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Trash2, Send, Building, Search, ArrowRight, Printer, ArrowLeft, Loader2, Mail, Phone, MapPin } from 'lucide-react';
+import { 
+  Plus, 
+  Trash2, 
+  Send, 
+  Building, 
+  Search, 
+  ArrowRight, 
+  Printer, 
+  ArrowLeft, 
+  Loader2, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Package 
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
   crearCotizacion,
   recalcularTotalesCotizacion,
   formatearMonto
 } from '@/lib/services/cotizaciones';
-import { Cotizacion, CotizacionDetalle, CotizacionTipoOperacion, Producto } from '@/types/erp';
+import { Cotizacion, CotizacionDetalle, CotizacionTipoOperacion, Producto, Kit } from '@/types/erp';
 import { generarCotizacionPDF } from '@/lib/documents';
 import { buscarProductos } from '@/lib/services/productos';
+import { obtenerKitsConDetalles } from '@/lib/services/kits';
 
 // =======================================================
 // COMPONENTE MODAL INTERNO DE CONFIRMACIÓN
@@ -85,7 +100,7 @@ function CotizacionResumenModal({
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
-            <Link href="/admin/servicios/cotizaciones">
+            <Link href="/admin/cotizaciones">
               <Button variant="outline" className="text-xs border-sky-600 text-sky-700 hover:bg-sky-50">
                 Ver en Panel <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Button>
@@ -116,7 +131,6 @@ function CotizacionResumenModal({
     </div>
   );
 }
-
 // =======================================================
 // PÁGINA PRINCIPAL COTIZADOR CLIENTE
 // =======================================================
@@ -133,20 +147,27 @@ export default function CotizadorClientePage() {
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [clienteDepartamento, setClienteDepartamento] = useState('');
 
+  // Selector Modo Inserción: PRODUCTO (Individual) o ARMADO (Kits/Mesa)
+  const [modoSeleccion, setModoSeleccion] = useState<'PRODUCTO' | 'ARMADO'>('PRODUCTO');
+
   // Parámetros de la Cotización
   const [moneda, setMoneda] = useState<'USD' | 'PEN'>('USD');
-  const [tipoOperacion, setTipoOperacion] = useState<CotizacionTipoOperacion>('PRODUCTO');
   const [validezDias, setValidezDias] = useState<number>(15);
   const [detalles, setDetalles] = useState<CotizacionDetalle[]>([]);
 
-  // Buscador y Selección de Productos
+  // Catálogos de base de datos
   const [productosDB, setProductosDB] = useState<Producto[]>([]);
+  const [kitsDB, setKitsDB] = useState<Kit[]>([]);
+
+  // Buscador y Selección de Producto Individual
   const [busquedaProducto, setBusquedaProducto] = useState('');
   const [mostrarResultados, setMostrarResultados] = useState(false);
-
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [nuevaCantidad, setNuevaCantidad] = useState<number>(1);
   const [nuevoPrecio, setNuevoPrecio] = useState<number>(0);
+
+  // Selección de Armados / Kits
+  const [kitSeleccionadoId, setKitSeleccionadoId] = useState<string>('');
 
   const [cotizacionCreada, setCotizacionCreada] = useState<Cotizacion | null>(null);
 
@@ -155,24 +176,26 @@ export default function CotizadorClientePage() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Cargar catálogo de productos
+  // Cargar Catálogos (Productos y Kits con sus relaciones)
   useEffect(() => {
     let cancelado = false;
-    buscarProductos()
-      .then((data) => {
-        if (!cancelado) setProductosDB(data);
+    Promise.all([buscarProductos(), obtenerKitsConDetalles()])
+      .then(([prods, kits]) => {
+        if (!cancelado) {
+          setProductosDB(prods);
+          setKitsDB(kits);
+        }
       })
       .catch(() => {
-        if (!cancelado) showToast('error', 'No se pudo cargar el catálogo de productos.');
+        if (!cancelado) showToast('error', 'No se pudieron cargar los catálogos.');
       });
+
     return () => {
       cancelado = true;
     };
   }, []);
 
-  // =======================================================
-  // BÚSQUEDA REAL API SUNAT/RENIEC
-  // =======================================================
+  // Búsqueda en API SUNAT / RENIEC
   const consultarDocumento = async () => {
     const doc = clienteNumDoc.trim();
 
@@ -183,13 +206,11 @@ export default function CotizadorClientePage() {
 
     try {
       setBuscandoDoc(true);
-
       const res = await fetch(`/api/consulta-doc?doc=${doc}`);
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'No se encontraron datos para el documento.');
 
-      // Rellenar campos recibidos y permitir edición posterior
       setClienteRazonSocial(data.razon_social || data.nombres || '');
       setClienteDireccion(data.direccion || clienteDireccion);
       if (data.departamento) setClienteDepartamento(data.departamento);
@@ -202,6 +223,7 @@ export default function CotizadorClientePage() {
     }
   };
 
+  // Lógica para Productos Individuales
   const productosFiltrados = productosDB.filter((p) => {
     const q = busquedaProducto.toLowerCase();
     return (
@@ -218,7 +240,7 @@ export default function CotizadorClientePage() {
     setMostrarResultados(false);
   };
 
-  const agregarItem = () => {
+  const agregarItemIndividual = () => {
     if (!productoSeleccionado && !busquedaProducto.trim()) {
       showToast('error', 'Selecciona o escribe un producto.');
       return;
@@ -237,12 +259,39 @@ export default function CotizadorClientePage() {
     };
 
     setDetalles([...detalles, nuevoDetalle]);
-
-    // Resetear selección
     setProductoSeleccionado(null);
     setBusquedaProducto('');
     setNuevaCantidad(1);
     setNuevoPrecio(0);
+  };
+
+  // Lógica para Inyectar Armado Completo
+  const agregarKitCompleto = (kitId: string) => {
+    const kit = kitsDB.find((k) => k.id === kitId);
+    if (!kit || !kit.detalles || kit.detalles.length === 0) {
+      showToast('error', 'El armado seleccionado no tiene productos vinculados.');
+      return;
+    }
+
+    const nuevosDetalles: CotizacionDetalle[] = kit.detalles.map((det, idx) => {
+      const prod = det.producto;
+      const precio = prod?.ultimo_precio_venta || 0;
+      const cant = det.cantidad || 1;
+
+      return {
+        id: `kit-item-${Date.now()}-${idx}`,
+        producto_id: det.producto_id,
+        producto_nombre: prod?.nombre || 'Producto de Armado',
+        producto_sku: prod?.sku,
+        cantidad: cant,
+        precio_unitario: precio,
+        subtotal: cant * precio,
+      };
+    });
+
+    setDetalles((prev) => [...prev, ...nuevosDetalles]);
+    setKitSeleccionadoId('');
+    showToast('success', `Armado "${kit.nombre}" agregado con todos sus ítems.`);
   };
 
   const eliminarItem = (index: number) => {
@@ -266,7 +315,7 @@ export default function CotizadorClientePage() {
         cliente_email: clienteEmail,
         cliente_telefono: clienteTelefono,
         cliente_departamento: clienteDepartamento,
-        tipo_operacion: tipoOperacion,
+        tipo_operacion: modoSeleccion === 'ARMADO' ? 'PROYECTO_MESA' : 'PRODUCTO',
         estado: 'PENDIENTE',
         moneda,
         validez_dias: validezDias,
@@ -279,7 +328,7 @@ export default function CotizadorClientePage() {
       showToast('success', 'Cotización registrada exitosamente.');
       setCotizacionCreada(res);
 
-      // Limpiar formulario
+      // Limpiar datos
       setClienteRazonSocial('');
       setClienteNumDoc('');
       setClienteDireccion('');
@@ -293,7 +342,6 @@ export default function CotizadorClientePage() {
       setCargando(false);
     }
   };
-
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
       {toast && (
@@ -310,7 +358,7 @@ export default function CotizadorClientePage() {
           </Link>
           <div>
             <h1 className="text-xl font-black text-slate-900">Cotización para Cliente</h1>
-            <p className="text-xs text-slate-500">Crea una propuesta comercial directa desde tu catálogo.</p>
+            <p className="text-xs text-slate-500">Crea una propuesta comercial directa desde tu catálogo o armados.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -394,7 +442,7 @@ export default function CotizadorClientePage() {
               />
             </div>
 
-            {/* Email (Manual) */}
+            {/* Email */}
             <div>
               <label className="block text-slate-600 font-semibold mb-1 flex items-center gap-1">
                 <Mail className="w-3.5 h-3.5 text-slate-400" /> Correo Electrónico
@@ -408,7 +456,7 @@ export default function CotizadorClientePage() {
               />
             </div>
 
-            {/* Teléfono (Manual) */}
+            {/* Teléfono */}
             <div>
               <label className="block text-slate-600 font-semibold mb-1 flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5 text-slate-400" /> Teléfono / WhatsApp
@@ -422,7 +470,7 @@ export default function CotizadorClientePage() {
               />
             </div>
 
-            {/* Departamento / Ciudad (Manual / Autocompletado) */}
+            {/* Departamento */}
             <div>
               <label className="block text-slate-600 font-semibold mb-1">Departamento / Región</label>
               <input
@@ -436,87 +484,153 @@ export default function CotizadorClientePage() {
           </div>
         </div>
 
-        {/* Buscador Dinámico de Productos */}
+        {/* Bloque de Inserción: Selector de Modo (Productos vs Armados) */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Search className="w-4 h-4 text-sky-600" /> Selección de Productos del Catálogo
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Search className="w-4 h-4 text-sky-600" /> Agregar Ítems a la Cotización
+            </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-            <div className="sm:col-span-6">Producto</div>
-            <div className="sm:col-span-2 text-center">Cantidad</div>
-            <div className="sm:col-span-3 text-right">Precio ({moneda})</div>
-            <div className="sm:col-span-1 text-center">Acción</div>
+            {/* TOGGLE SELECTOR DE MODO */}
+            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
+              <button
+                type="button"
+                onClick={() => setModoSeleccion('PRODUCTO')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
+                  modoSeleccion === 'PRODUCTO'
+                    ? 'bg-white text-sky-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5" /> Productos Individuales
+              </button>
+              <button
+                type="button"
+                onClick={() => setModoSeleccion('ARMADO')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
+                  modoSeleccion === 'ARMADO'
+                    ? 'bg-white text-sky-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Package className="w-3.5 h-3.5" /> Venta de Armados (Kits)
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-            <div className="relative sm:col-span-6">
-              <input
-                type="text"
-                placeholder="Buscar por Nombre, SKU o Descripción..."
-                value={busquedaProducto}
-                onChange={(e) => {
-                  setBusquedaProducto(e.target.value);
-                  setMostrarResultados(true);
-                }}
-                onFocus={() => setMostrarResultados(true)}
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-sky-500"
-              />
+          {/* BUSCADOR CONDICIONAL SEGÚN MODO */}
+          {modoSeleccion === 'ARMADO' ? (
+            /* VISTA SELECTOR DE ARMADOS / KITS */
+            <div className="bg-sky-50/50 border border-sky-100 p-4 rounded-xl space-y-3">
+              <label className="block text-xs font-bold text-sky-900">
+                Selecciona un Armado Configurado (Kits de Fertilización, etc.)
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={kitSeleccionadoId}
+                  onChange={(e) => setKitSeleccionadoId(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value="">-- Selecciona un Armado / Kit --</option>
+                  {kitsDB.map((kit) => (
+                    <option key={kit.id} value={kit.id}>
+                      {kit.nombre} ({kit.codigo}) - {kit.detalles?.length || 0} componentes incluidos
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  onClick={() => kitSeleccionadoId && agregarKitCompleto(kitSeleccionadoId)}
+                  disabled={!kitSeleccionadoId}
+                  className="bg-sky-600 hover:bg-sky-700 text-white text-xs px-4 rounded-xl shrink-0 flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Desglosar e Inyectar Componentes
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-500 italic">
+                Al seleccionar un armado, se agregarán automáticamente todos los productos y cantidades que lo integran.
+              </p>
+            </div>
+          ) : (
+            /* VISTA BUSCADOR DE PRODUCTOS INDIVIDUALES */
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                <div className="sm:col-span-6">Producto</div>
+                <div className="sm:col-span-2 text-center">Cantidad</div>
+                <div className="sm:col-span-3 text-right">Precio ({moneda})</div>
+                <div className="sm:col-span-1 text-center">Acción</div>
+              </div>
 
-              {mostrarResultados && busquedaProducto.length > 0 && (
-                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
-                  {productosFiltrados.length > 0 ? (
-                    productosFiltrados.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => seleccionarProducto(p)}
-                        className="p-3 hover:bg-sky-50 cursor-pointer flex justify-between items-center text-xs"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-800">{p.nombre}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">SKU: {p.sku || 'N/A'}</p>
-                        </div>
-                        <span className="font-semibold text-sky-700">{formatearMonto(p.ultimo_precio_venta || 0, moneda)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-3 text-xs text-slate-400 text-center italic">No hay coincidencias en el catálogo.</div>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="relative sm:col-span-6">
+                  <input
+                    type="text"
+                    placeholder="Buscar por Nombre, SKU o Descripción..."
+                    value={busquedaProducto}
+                    onChange={(e) => {
+                      setBusquedaProducto(e.target.value);
+                      setMostrarResultados(true);
+                    }}
+                    onFocus={() => setMostrarResultados(true)}
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+
+                  {mostrarResultados && busquedaProducto.length > 0 && (
+                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
+                      {productosFiltrados.length > 0 ? (
+                        productosFiltrados.map((p) => (
+                          <div
+                            key={p.id}
+                            onClick={() => seleccionarProducto(p)}
+                            className="p-3 hover:bg-sky-50 cursor-pointer flex justify-between items-center text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-800">{p.nombre}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">SKU: {p.sku || 'N/A'}</p>
+                            </div>
+                            <span className="font-semibold text-sky-700">{formatearMonto(p.ultimo_precio_venta || 0, moneda)}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-xs text-slate-400 text-center italic">No hay coincidencias en el catálogo.</div>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            <div className="sm:col-span-2">
-              <input
-                type="number"
-                min={1}
-                value={nuevaCantidad}
-                onChange={(e) => setNuevaCantidad(Number(e.target.value))}
-                className="w-full p-2.5 border rounded-lg bg-white text-center"
-              />
-            </div>
+                <div className="sm:col-span-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={nuevaCantidad}
+                    onChange={(e) => setNuevaCantidad(Number(e.target.value))}
+                    className="w-full p-2.5 border rounded-lg bg-white text-center"
+                  />
+                </div>
 
-            <div className="sm:col-span-3">
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                value={nuevoPrecio || ''}
-                onChange={(e) => setNuevoPrecio(Number(e.target.value))}
-                placeholder={`Precio (${moneda})`}
-                className="w-full p-2.5 border rounded-lg bg-white text-right"
-              />
-            </div>
+                <div className="sm:col-span-3">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={nuevoPrecio || ''}
+                    onChange={(e) => setNuevoPrecio(Number(e.target.value))}
+                    placeholder={`Precio (${moneda})`}
+                    className="w-full p-2.5 border rounded-lg bg-white text-right"
+                  />
+                </div>
 
-            <div className="sm:col-span-1 flex items-center">
-              <Button type="button" onClick={agregarItem} className="w-full bg-sky-600 hover:bg-sky-700 text-white p-2.5 rounded-lg">
-                <Plus className="w-4 h-4 mx-auto" />
-              </Button>
+                <div className="sm:col-span-1 flex items-center">
+                  <Button type="button" onClick={agregarItemIndividual} className="w-full bg-sky-600 hover:bg-sky-700 text-white p-2.5 rounded-lg">
+                    <Plus className="w-4 h-4 mx-auto" />
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Tabla de Productos Agregados */}
-          <table className="w-full text-left text-xs">
+          {/* TABLA DE PRODUCTOS AGREGADOS */}
+          <table className="w-full text-left text-xs mt-4">
             <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
               <tr>
                 <th className="p-2.5">Producto</th>
@@ -546,7 +660,9 @@ export default function CotizadorClientePage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400 italic">No has agregado productos a la cotización.</td>
+                  <td colSpan={5} className="p-6 text-center text-slate-400 italic">
+                    No has agregado ítems a la cotización. Usa el selector para agregar productos o armados.
+                  </td>
                 </tr>
               )}
             </tbody>
