@@ -1,5 +1,22 @@
 ﻿-- ==============================================================================
--- AGROFERTIL ERP / CRM - SCHEMA DEFINE (ROLES: ADMIN Y TECNICO)
+-- AGROFERTIL ERP / CRM - SCHEMA DE REFERENCIA (ROLES: ADMIN Y TECNICO)
+-- ==============================================================================
+--
+-- ⚠️  ADVERTENCIA — NO EJECUTAR ESTE ARCHIVO CONTRA LA BASE DE DATOS REAL ⚠️
+--
+-- Este archivo es solo una FOTOGRAFÍA DE REFERENCIA de cómo se ve el esquema
+-- completo hoy — sirve para entender la estructura de un vistazo, o para
+-- levantar un proyecto de Supabase NUEVO desde cero (uno que todavía no
+-- tiene datos). Empieza con "DROP TABLE ... CASCADE", así que ejecutarlo
+-- contra el proyecto real BORRARÍA TODOS LOS DATOS (clientes, cotizaciones,
+-- órdenes de trabajo, etc.).
+--
+-- A partir de ahora, cualquier cambio al esquema de la base real se hace
+-- SIEMPRE mediante un archivo nuevo en `supabase/migrations/` (ver el
+-- README de esa carpeta), nunca editando y re-ejecutando este archivo.
+-- Este archivo se actualiza después, como documentación, para que siga
+-- reflejando el estado final una vez aplicada la migración.
+--
 -- ==============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -198,7 +215,7 @@ CREATE TABLE public.cotizacion_detalles (
 -- ==============================================================================
 CREATE TABLE public.cotizaciones_proveedor (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  cotizacion_id UUID NOT NULL REFERENCES public.cotizaciones(id) ON DELETE CASCADE,
+  cotizacion_id UUID REFERENCES public.cotizaciones(id) ON DELETE CASCADE, -- NULL: solicitud libre a proveedor, sin cotización de cliente asociada
   proveedor_id UUID NOT NULL REFERENCES public.proveedores(id),
   detalle_id UUID REFERENCES public.cotizacion_detalles(id),
   producto_id UUID NOT NULL REFERENCES public.productos(id),
@@ -514,27 +531,70 @@ ALTER TABLE public.bitacora_tecnica ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.documentos_operacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plantillas_mensaje ENABLE ROW LEVEL SECURITY;
 
--- Políticas de Acceso Estándar para Usuarios Autenticados
-CREATE POLICY "auth_all_clientes" ON public.clientes FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_proveedores" ON public.proveedores FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_productos" ON public.productos FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_cotizaciones" ON public.cotizaciones FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_cotizacion_detalles" ON public.cotizacion_detalles FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_cotizaciones_proveedor" ON public.cotizaciones_proveedor FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_ordenes_compra" ON public.ordenes_compra FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_orden_compra_detalles" ON public.orden_compra_detalles FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_facturas_compras" ON public.facturas_compras FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_movimientos_inventario" ON public.movimientos_inventario FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_despachos_cliente" ON public.despachos_cliente FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_comprobantes_sunat" ON public.comprobantes_sunat FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_ordenes_trabajo" ON public.ordenes_trabajo FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_bitacora_tecnica" ON public.bitacora_tecnica FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_documentos_operacion" ON public.documentos_operacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth_all_plantillas_mensaje" ON public.plantillas_mensaje FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Control de acceso por rol: un ADMIN tiene acceso total; un TECNICO solo ve
+-- lo que le corresponde (su propio usuario, los clientes y bitácora de SUS
+-- órdenes de trabajo). Las tablas de back-office (cotizaciones, compras,
+-- productos, proveedores, facturación SUNAT) son exclusivas de ADMIN.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.usuarios WHERE id = auth.uid() AND rol = 'ADMIN'
+  );
+$$;
 
--- Políticas Específicas para Usuarios
-CREATE POLICY "usuarios_read_all" ON public.usuarios FOR SELECT TO authenticated USING (true);
+-- Tablas exclusivas de administración
+CREATE POLICY "admin_all_proveedores" ON public.proveedores FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_productos" ON public.productos FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_cotizaciones" ON public.cotizaciones FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_cotizacion_detalles" ON public.cotizacion_detalles FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_cotizaciones_proveedor" ON public.cotizaciones_proveedor FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_ordenes_compra" ON public.ordenes_compra FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_orden_compra_detalles" ON public.orden_compra_detalles FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_facturas_compras" ON public.facturas_compras FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_movimientos_inventario" ON public.movimientos_inventario FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_despachos_cliente" ON public.despachos_cliente FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_comprobantes_sunat" ON public.comprobantes_sunat FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_documentos_operacion" ON public.documentos_operacion FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "admin_all_plantillas_mensaje" ON public.plantillas_mensaje FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- usuarios: admin ve todos; cada quien ve y actualiza solo su propia fila
+CREATE POLICY "admin_read_all_usuarios" ON public.usuarios FOR SELECT TO authenticated USING (public.is_admin());
+CREATE POLICY "usuarios_self_read" ON public.usuarios FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY "usuarios_self_update" ON public.usuarios FOR UPDATE TO authenticated USING (id = auth.uid());
+
+-- clientes: admin ve todos; un técnico solo ve los clientes de SUS órdenes
+CREATE POLICY "admin_all_clientes" ON public.clientes FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "tecnico_clientes_de_sus_ordenes" ON public.clientes FOR SELECT TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.ordenes_trabajo ot
+    WHERE ot.cliente_id = clientes.id AND ot.tecnico_asignado = auth.uid()
+  )
+);
+
+-- ordenes_trabajo: admin ve/edita todas; el técnico solo ve/edita las suyas
+CREATE POLICY "admin_all_ordenes_trabajo" ON public.ordenes_trabajo FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "tecnico_select_sus_ordenes" ON public.ordenes_trabajo FOR SELECT TO authenticated USING (tecnico_asignado = auth.uid());
+CREATE POLICY "tecnico_update_sus_ordenes" ON public.ordenes_trabajo FOR UPDATE TO authenticated USING (tecnico_asignado = auth.uid()) WITH CHECK (tecnico_asignado = auth.uid());
+
+-- bitacora_tecnica: admin ve/edita todo; el técnico ve/agrega solo en SUS OT
+CREATE POLICY "admin_all_bitacora_tecnica" ON public.bitacora_tecnica FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "tecnico_select_bitacora_sus_ordenes" ON public.bitacora_tecnica FOR SELECT TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.ordenes_trabajo ot
+    WHERE ot.id = bitacora_tecnica.orden_trabajo_id AND ot.tecnico_asignado = auth.uid()
+  )
+);
+CREATE POLICY "tecnico_insert_bitacora_sus_ordenes" ON public.bitacora_tecnica FOR INSERT TO authenticated WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.ordenes_trabajo ot
+    WHERE ot.id = bitacora_tecnica.orden_trabajo_id AND ot.tecnico_asignado = auth.uid()
+  )
+);
 
 -- ==============================================================================
 -- 17. DATOS SEMILLA SEGUROS

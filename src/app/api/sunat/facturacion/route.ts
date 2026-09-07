@@ -16,10 +16,11 @@ export async function POST(request: Request) {
       moneda = 'PEN',
     } = body;
 
+    const codigoTipoDoc = tipo_comprobante === 'FACTURA' ? '01' : tipo_comprobante === 'BOLETA' ? '03' : '09';
     const correlativo = Math.floor(100 + Math.random() * 900).toString().padStart(8, '0');
     const fullNumero = `${serie}-${correlativo}`;
     const hash = Buffer.from(`${fullNumero}|${cliente_num_doc}|${total}|${Date.now()}`).toString('base64').substring(0, 24) + '=';
-    const qrData = `20601234567|${tipo_comprobante === 'FACTURA' ? '01' : '03'}|${serie}|${correlativo}|${igv}|${total}|${new Date().toISOString().split('T')[0]}|6|${cliente_num_doc}|${hash}`;
+    const qrData = `20601234567|${codigoTipoDoc}|${serie}|${correlativo}|${igv}|${total}|${new Date().toISOString().split('T')[0]}|6|${cliente_num_doc}|${hash}`;
 
     const comprobante = {
       id: `cpe_${Date.now()}`,

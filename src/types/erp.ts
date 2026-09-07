@@ -11,6 +11,7 @@ export interface Usuario {
   rol: UserRole;
   telefono?: string;
   avatar_url?: string;
+  avatarUrl?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -84,17 +85,19 @@ export type ProductoCategoria =
 
 export interface Producto {
   id: string;
-  sku: string;
+  sku?: string;
   nombre: string;
   descripcion?: string;
   categoria: ProductoCategoria;
   unidad_medida: string;
   ultimo_costo_compra: number;
-  costo_promedio: number;
+  costo_promedio?: number;
   ultimo_precio_venta: number;
-  stock_actual: number;
-  stock_reservado: number;
-  stock_minimo: number;
+  stock_actual?: number;
+  stock_reservado?: number;
+  stock_minimo?: number;
+  proveedor_id?: string;
+  proveedor_nombre?: string;
   created_at?: string;
 }
 
@@ -142,6 +145,7 @@ export interface ItemRequerimiento {
 export interface CotizacionProveedor {
   id: string;
   cotizacion_id?: string;
+  cotizacion_numero?: string;
   proveedor_id: string;
   proveedor_nombre?: string;
   proveedor?: Proveedor;
@@ -165,12 +169,15 @@ export interface CotizacionProveedor {
 // ========================================================
 // COTIZACIONES CLIENTE
 // ========================================================
-export type CotizacionTipoOperacion = 'PRODUCTO' | 'PROYECTO_MESA';
+export type CotizacionTipoOperacion = 'PRODUCTO' | 'PROYECTO_MESA' | 'SOLO_VENTA' | 'VENTA_ARMADO';
 export type CotizacionEstado =
   | 'BORRADOR'
   | 'PENDIENTE'
   | 'ENVIADA'
   | 'APROBADA'
+  | 'EN_COMPRAS'
+  | 'EN_INSTALACION'
+  | 'FACTURADA'
   | 'RECHAZADA'
   | 'CANCELADA'
   | 'VENCIDA'
@@ -182,9 +189,11 @@ export interface CotizacionDetalle {
   producto_id: string;
   producto_sku?: string;
   producto_nombre?: string;
+  proveedor_id?: string;
   oferta_ganadora_id?: string;
   cantidad: number;
   precio_unitario: number;
+  costo_unitario?: number;
   descuento_pct?: number;
   subtotal: number;
 }
@@ -192,9 +201,11 @@ export interface CotizacionDetalle {
 export interface Cotizacion {
   id: string;
   codigo?: string;
+  numero: string;
   cliente_id?: string;
-  cliente_num_doc?: string;
-  cliente_razon_social?: string;
+  cliente_tipo_doc?: TipoDocumento;
+  cliente_num_doc: string;
+  cliente_razon_social: string;
   cliente_direccion?: string;
   cliente_email?: string;
   cliente_telefono?: string;
@@ -206,15 +217,22 @@ export interface Cotizacion {
   subtotal: number;
   igv: number;
   total: number;
-  validez_dias: number;
+  validez_dias?: number;
+  fecha?: string;
   fecha_emision?: string;
   fecha_expiracion?: string;
   fecha_entrega_estimada?: string;
   dias_entrega_estimados?: number;
+  tiempo_entrega_estimado_dias?: number;
+  observaciones?: string;
+  incluye_mano_obra?: boolean;
+  costo_mano_obra?: number;
+  orden_trabajo_id?: string;
+  comprobante_id?: string;
   ingreso_manual_fecha?: boolean;
   created_at?: string;
   updated_at?: string;
-  detalles?: CotizacionDetalle[];
+  detalles: CotizacionDetalle[];
   ofertas_proveedores?: CotizacionProveedor[];
 }
 
@@ -225,10 +243,13 @@ export type OrdenCompraEstado =
   | 'BORRADOR'
   | 'PENDIENTE_PAGO'
   | 'PAGADA'
+  | 'PAGADO'
   | 'ENVIADA'
+  | 'ENVIADO'
   | 'CONFIRMADA'
   | 'PARCIAL'
   | 'RECIBIDA'
+  | 'RECIBIDO'
   | 'CANCELADA';
 
 export type DestinoProducto = 'CLIENTE' | 'STOCK_PROPIO';
@@ -242,46 +263,60 @@ export interface OrdenCompraDetalle {
   oferta_proveedor_id?: string;
   cantidad: number;
   costo_unitario: number;
-  destino: DestinoProducto;
+  destino?: DestinoProducto;
   subtotal: number;
 }
 
 export interface OrdenCompra {
   id: string;
   codigo?: string;
+  numero: string;
   proveedor_id: string;
   proveedor_ruc?: string;
-  proveedor_razon_social?: string;
+  proveedor_razon_social: string;
+  proveedor_email?: string;
+  cotizacion_id?: string;
   cotizacion_origen_id?: string;
+  cotizacion_numero?: string;
   estado: OrdenCompraEstado;
   moneda: 'PEN' | 'USD';
-  subtotal: number;
-  igv: number;
-  total: number;
+  subtotal?: number;
+  igv?: number;
+  total?: number;
+  monto_total: number;
+  fecha?: string;
+  fecha_estimada_entrega?: string;
+  factura_proveedor_num?: string;
+  fecha_recepcion?: string;
   voucher_url?: string;
   fecha_pago?: string;
   fecha_envio?: string;
   fecha_entrega_estimada?: string;
   created_at?: string;
   updated_at?: string;
-  detalles?: OrdenCompraDetalle[];
+  detalles: OrdenCompraDetalle[];
 }
 
 export interface FacturaCompra {
   id: string;
   orden_compra_id?: string;
+  orden_compra_numero?: string;
   proveedor_id: string;
-  serie: string;
-  numero: string;
-  tipo_comprobante: 'SOLO_GUIA' | 'GUIA_Y_FACTURA' | 'FACTURA';
+  proveedor_nombre?: string;
+  numero_factura?: string;
+  serie?: string;
+  numero?: string;
+  tipo_comprobante?: 'SOLO_GUIA' | 'GUIA_Y_FACTURA' | 'FACTURA';
   fecha_emision: string;
   moneda: 'PEN' | 'USD';
-  subtotal: number;
-  igv: number;
-  total: number;
+  subtotal?: number;
+  igv?: number;
+  total?: number;
+  monto_total?: number;
+  estado_pago?: 'PENDIENTE' | 'PAGADO';
   ocr_url?: string;
   ocr_datos?: Record<string, unknown>;
-  estado_conciliacion: 'PENDIENTE' | 'CONCILIADA' | 'DIFERENCIA';
+  estado_conciliacion?: 'PENDIENTE' | 'CONCILIADA' | 'DIFERENCIA';
   diferencia_monto?: number;
   created_at?: string;
 }
@@ -289,15 +324,19 @@ export interface FacturaCompra {
 // ========================================================
 // FACTURACIÓN ELECTRÓNICA SUNAT
 // ========================================================
-export type ComprobanteSunatTipo = 'FACTURA' | 'BOLETA';
-export type ComprobanteSunatEstado = 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'OBSERVADO';
+export type ComprobanteSunatTipo = 'FACTURA' | 'BOLETA' | 'GUIA_REMISION';
+export type ComprobanteSunatEstado = 'PENDIENTE' | 'ACEPTADO' | 'ENVIADO' | 'RECHAZADO' | 'OBSERVADO' | 'ANULADO';
 
 export interface ComprobanteSunat {
   id: string;
   tipo_comprobante: ComprobanteSunatTipo;
   serie: string;
   numero: string;
-  cliente_id: string;
+  cliente_id?: string;
+  cliente_tipo_doc?: TipoDocumento;
+  cliente_num_doc: string;
+  cliente_razon_social: string;
+  cliente_direccion?: string;
   cotizacion_id?: string;
   orden_trabajo_id?: string;
   moneda: 'PEN' | 'USD';
@@ -306,6 +345,11 @@ export interface ComprobanteSunat {
   total: number;
   xml_url?: string;
   cdr_url?: string;
+  pdf_url?: string;
+  hash_cpe?: string;
+  qr_data?: string;
+  fecha_emision?: string;
+  observaciones_sunat?: string;
   estado_sunat: ComprobanteSunatEstado;
   created_at?: string;
 }
@@ -313,7 +357,7 @@ export interface ComprobanteSunat {
 // ========================================================
 // ORDENES DE TRABAJO Y BITÁCORA
 // ========================================================
-export type OrdenTrabajoEstado = 'CREADA' | 'EN_PROGRESO' | 'PAUSADA' | 'COMPLETADA' | 'CANCELADA';
+export type OrdenTrabajoEstado = 'CREADA' | 'EN_PROGRESO' | 'EN_PROCESO' | 'PAUSADA' | 'COMPLETADA' | 'FINALIZADO' | 'CANCELADA' | 'PENDIENTE';
 export type EtapaBitacora =
   | 'VISITA_INICIAL'
   | 'DIAGNOSTICO'
@@ -326,26 +370,44 @@ export interface BitacoraItem {
   id: string;
   orden_trabajo_id: string;
   usuario_id?: string;
-  etapa: EtapaBitacora;
-  titulo: string;
+  etapa?: EtapaBitacora;
+  titulo?: string;
+  hito?: string;
+  nota?: string;
+  foto_url?: string;
+  materiales_extra?: string;
+  fecha_registro?: string;
+  hora_registro?: string;
   descripcion?: string;
   adjuntos?: Record<string, unknown>;
+  ubicacion?: { lat: number; lng: number };
   created_at?: string;
 }
 
 export interface OrdenTrabajo {
   id: string;
   codigo?: string;
-  cliente_id: string;
+  cliente_id?: string;
   cliente_nombre?: string;
+  cliente_telefono?: string;
+  ubicacion_fundo?: string;
+  cotizacion_id?: string;
+  cotizacion_numero?: string;
   cotizacion_origen_id?: string;
-  nombre_proyecto: string;
+  nombre_proyecto?: string;
   descripcion?: string;
+  tecnico_id?: string;
   tecnico_asignado?: string;
   tecnico_nombre?: string;
   estado: OrdenTrabajoEstado;
+  fecha_programada?: string;
   fecha_inicio?: string;
   fecha_fin_estimada?: string;
   fecha_fin_real?: string;
-  bitacora?: BitacoraItem[];
+  fecha_finalizacion?: string;
+  observaciones?: string;
+  firma_cliente_url?: string;
+  firma_cliente_nombre?: string;
+  informe_pdf_url?: string;
+  bitacora: BitacoraItem[];
 }

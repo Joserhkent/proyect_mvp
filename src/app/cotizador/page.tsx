@@ -25,8 +25,8 @@ export default function CotizadorSelectorPage() {
 
       {/* Encabezado Principal */}
       <div>
-        <h1 className="text-2xl font-black text-slate-900">Módulo de Cotizaciones</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Módulo de Cotizaciones</h1>
+        <p className="text-sm text-slate-500 mt-1">
           Selecciona la modalidad de operación para alternar entre pantallas.
         </p>
       </div>
@@ -39,14 +39,14 @@ export default function CotizadorSelectorPage() {
           onClick={() => setTabActiva('cliente')}
           className={`p-4 rounded-xl border text-left transition-all flex items-start gap-4 ${
             tabActiva === 'cliente'
-              ? 'bg-white border-sky-500 shadow-md ring-2 ring-sky-500/20'
+              ? 'bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
               : 'bg-transparent border-transparent hover:bg-white/60 text-slate-600'
           }`}
         >
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
               tabActiva === 'cliente'
-                ? 'bg-sky-600 text-white'
+                ? 'bg-emerald-600 text-white'
                 : 'bg-slate-200 text-slate-600'
             }`}
           >
@@ -54,7 +54,7 @@ export default function CotizadorSelectorPage() {
           </div>
           <div>
             <h2 className="text-sm font-bold text-slate-900">Cotización a Cliente</h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Propuestas comerciales con precios de venta y catálogo/armados.
             </p>
           </div>
@@ -81,7 +81,7 @@ export default function CotizadorSelectorPage() {
           </div>
           <div>
             <h2 className="text-sm font-bold text-slate-900">Solicitud a Proveedores</h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Requerimientos de insumos o materiales para costos de compra.
             </p>
           </div>

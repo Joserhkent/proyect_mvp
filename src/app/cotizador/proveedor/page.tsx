@@ -1,15 +1,17 @@
 ﻿'use client';
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Building2, 
-  Search, 
-  Plus, 
-  Trash2, 
-  Send, 
-  Mail, 
-  MessageSquare, 
-  Loader2 
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import {
+  Building2,
+  Search,
+  Plus,
+  Trash2,
+  Send,
+  Mail,
+  MessageSquare,
+  Loader2,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
@@ -18,6 +20,18 @@ import { guardarCotizacionProveedor } from '@/lib/services/cotizaciones-proveedo
 import { Proveedor, Producto, ItemRequerimiento, CanalEnvioCotizacion } from '@/types/erp';
 
 export default function CotizadorProveedorPage() {
+  return (
+    <Suspense fallback={null}>
+      <CotizadorProveedorContent />
+    </Suspense>
+  );
+}
+
+function CotizadorProveedorContent() {
+  const searchParams = useSearchParams();
+  const cotizacionId = searchParams.get('cotizacion_id') || undefined;
+  const cotizacionNumero = searchParams.get('numero') || undefined;
+
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -30,8 +44,26 @@ export default function CotizadorProveedorPage() {
   const [canalEnvio, setCanalEnvio] = useState<CanalEnvioCotizacion>('WHATSAPP');
   const [notaAdicional, setNotaAdicional] = useState('');
 
-  // Ítems a solicitar
-  const [items, setItems] = useState<ItemRequerimiento[]>([]);
+  // Ítems a solicitar (si viene de una cotización de cliente, se precargan sus productos)
+  const [items, setItems] = useState<ItemRequerimiento[]>(() => {
+    const itemsParam = searchParams.get('items');
+    if (!itemsParam) return [];
+    try {
+      const parsed = JSON.parse(itemsParam) as Array<{
+        producto_id: string;
+        producto_nombre: string;
+        cantidad: number;
+      }>;
+      return parsed.map((it, idx) => ({
+        id: `item-precargado-${idx}`,
+        producto_id: it.producto_id,
+        producto_nombre: it.producto_nombre,
+        cantidad: it.cantidad,
+      }));
+    } catch {
+      return [];
+    }
+  });
 
   // Buscador de productos
   const [busquedaProd, setBusquedaProd] = useState('');
@@ -51,10 +83,24 @@ export default function CotizadorProveedorPage() {
       try {
         const supabase = createClient();
         const [{ data: provs }, prods] = await Promise.all([
-          (supabase as any).from('proveedores').select('*').order('razon_social'),
+          supabase.from('proveedores').select('*').order('razon_social'),
           buscarProductos()
         ]);
-        setProveedores(provs || []);
+        setProveedores(
+          (provs || []).map((p) => ({
+            ...p,
+            created_at: p.created_at ?? undefined,
+            ruc: p.ruc ?? undefined,
+            email: p.email ?? undefined,
+            telefono: p.telefono ?? undefined,
+            contacto: p.contacto ?? undefined,
+            direccion: p.direccion ?? undefined,
+            departamento: p.departamento ?? undefined,
+            provincia: p.provincia ?? undefined,
+            dias_entrega_estimados: p.dias_entrega_estimados ?? undefined,
+            costo_flete_base: p.costo_flete_base ?? undefined,
+          }))
+        );
         setProductosDB(prods || []);
       } catch (err) {
         showToast('error', 'No se pudieron cargar los proveedores o productos.');
@@ -108,6 +154,7 @@ export default function CotizadorProveedorPage() {
         proveedor_id: proveedorSeleccionado.id,
         canal_envio: canalEnvio,
         notas: notaAdicional,
+        cotizacion_id: cotizacionId,
         detalles: items.map((item) => ({
           producto_id: item.producto_id,
           cantidad: item.cantidad,
@@ -156,8 +203,19 @@ export default function CotizadorProveedorPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg text-xs font-semibold text-white ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg text-sm font-semibold text-white ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
           {toast.message}
+        </div>
+      )}
+
+      {cotizacionId && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-xl text-sm font-bold">
+          <ClipboardList className="w-4 h-4 shrink-0" />
+          <span>
+            Consultando proveedores para la cotización <span className="font-mono">{cotizacionNumero || cotizacionId}</span>.
+            Al recibir las respuestas, marca la oferta ganadora en &quot;Monitoreo y Respuestas de Proveedores&quot; para
+            reutilizar ese costo al editar la cotización.
+          </span>
         </div>
       )}
 
@@ -167,7 +225,7 @@ export default function CotizadorProveedorPage() {
           <Building2 className="w-4 h-4 text-emerald-600" /> Seleccionar Proveedor
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <label className="block text-slate-600 font-semibold mb-1">Proveedor *</label>
             <select
@@ -206,7 +264,7 @@ export default function CotizadorProveedorPage() {
           <Search className="w-4 h-4 text-emerald-600" /> Ítems a Requerir
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm">
           <div className="relative sm:col-span-6">
             <input
               type="text"
@@ -267,7 +325,7 @@ export default function CotizadorProveedorPage() {
         </div>
 
         {/* Tabla de ítems agregados */}
-        <table className="w-full text-left text-xs">
+        <table className="w-full text-left text-sm">
           <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b">
             <tr>
               <th className="p-2.5">Producto / Descripción</th>
@@ -332,13 +390,13 @@ export default function CotizadorProveedorPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1">Nota Adicional / Condiciones</label>
+          <label className="block text-sm font-semibold text-slate-600 mb-1">Nota Adicional / Condiciones</label>
           <input
             type="text"
             value={notaAdicional}
             onChange={(e) => setNotaAdicional(e.target.value)}
             placeholder="Ej. Tiempo estimado de entrega, lugar de despacho..."
-            className="w-full p-2.5 text-xs border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full p-2.5 text-sm border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
       </div>
@@ -348,7 +406,7 @@ export default function CotizadorProveedorPage() {
           type="button"
           onClick={handleEnviar}
           disabled={cargando || !proveedorSeleccionado || items.length === 0}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-6 py-3 rounded-xl flex items-center gap-2"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-6 py-3 rounded-xl flex items-center gap-2"
         >
           {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           Enviar Solicitud ({canalEnvio})

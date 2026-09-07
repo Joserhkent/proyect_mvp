@@ -42,7 +42,7 @@ export default function AdminProveedoresPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Directorio de Proveedores Agrícolas
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Empresas proveedoras de bombas, tuberías, controladores de fertirriego y fertilizantes.
           </p>
         </div>
@@ -57,7 +57,7 @@ export default function AdminProveedoresPage() {
             placeholder="Buscar por razón social, RUC o contacto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function AdminProveedoresPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
+              <div className="space-y-1.5 text-sm text-slate-600 pt-2 border-t border-slate-100">
                 {prov.contacto && (
                   <div className="flex items-center gap-2">
                     <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />

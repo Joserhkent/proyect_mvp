@@ -49,14 +49,14 @@ function CotizacionResumenModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-slate-100">
         <div className="border-b border-slate-100 pb-4 mb-4">
-          <span className="text-xs font-semibold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
             Cotización Generada #{codigoCotizacion}
           </span>
           <h3 className="text-lg font-bold text-slate-800 mt-2">Propuesta Comercial para Cliente</h3>
         </div>
 
         <div className="space-y-4">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200">
               <tr>
                 <th className="p-2">Ítem / Descripción</th>
@@ -92,7 +92,7 @@ function CotizacionResumenModal({
                 <span>IGV (18%):</span>
                 <span className="font-bold text-slate-800">{formatearMonto(cotizacionGenerada.igv, moneda)}</span>
               </div>
-              <div className="flex justify-between text-sm font-black text-sky-900 pt-1 border-t border-slate-200">
+              <div className="flex justify-between text-sm font-black text-emerald-900 pt-1 border-t border-slate-200">
                 <span>TOTAL:</span>
                 <span>{formatearMonto(cotizacionGenerada.total, moneda)}</span>
               </div>
@@ -101,7 +101,7 @@ function CotizacionResumenModal({
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
             <Link href="/admin/cotizaciones">
-              <Button variant="outline" className="text-xs border-sky-600 text-sky-700 hover:bg-sky-50">
+              <Button variant="outline" className="text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50">
                 Ver en Panel <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Button>
             </Link>
@@ -377,7 +377,7 @@ export default function CotizadorClientePage() {
         {/* Datos Cliente */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
           <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Building className="w-4 h-4 text-sky-600" /> Datos del Cliente
+            <Building className="w-4 h-4 text-emerald-600" /> Datos del Cliente
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             {/* RUC / DNI */}
@@ -397,13 +397,13 @@ export default function CotizadorClientePage() {
                     }
                   }}
                   placeholder="Ej. 20601234567"
-                  className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <Button
                   type="button"
                   onClick={consultarDocumento}
                   disabled={buscandoDoc}
-                  className="bg-sky-600 hover:bg-sky-700 text-white px-3 rounded-xl flex items-center justify-center shrink-0"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded-xl flex items-center justify-center shrink-0"
                   title="Consultar en SUNAT/RENIEC"
                 >
                   {buscandoDoc ? (
@@ -424,7 +424,7 @@ export default function CotizadorClientePage() {
                 value={clienteRazonSocial}
                 onChange={(e) => setClienteRazonSocial(e.target.value)}
                 placeholder="Ej. Empresa Cliente S.A.C."
-                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -438,7 +438,7 @@ export default function CotizadorClientePage() {
                 value={clienteDireccion}
                 onChange={(e) => setClienteDireccion(e.target.value)}
                 placeholder="Av. Principal 123, Oficina 401"
-                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -452,7 +452,7 @@ export default function CotizadorClientePage() {
                 value={clienteEmail}
                 onChange={(e) => setClienteEmail(e.target.value)}
                 placeholder="contacto@cliente.com"
-                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -466,7 +466,7 @@ export default function CotizadorClientePage() {
                 value={clienteTelefono}
                 onChange={(e) => setClienteTelefono(e.target.value)}
                 placeholder="987654321"
-                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -478,7 +478,7 @@ export default function CotizadorClientePage() {
                 value={clienteDepartamento}
                 onChange={(e) => setClienteDepartamento(e.target.value)}
                 placeholder="Ej. Lima, La Libertad"
-                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -488,7 +488,7 @@ export default function CotizadorClientePage() {
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Search className="w-4 h-4 text-sky-600" /> Agregar Ítems a la Cotización
+              <Search className="w-4 h-4 text-emerald-600" /> Agregar Ítems a la Cotización
             </h2>
 
             {/* TOGGLE SELECTOR DE MODO */}
@@ -498,7 +498,7 @@ export default function CotizadorClientePage() {
                 onClick={() => setModoSeleccion('PRODUCTO')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
                   modoSeleccion === 'PRODUCTO'
-                    ? 'bg-white text-sky-600 shadow-sm'
+                    ? 'bg-white text-emerald-600 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -509,7 +509,7 @@ export default function CotizadorClientePage() {
                 onClick={() => setModoSeleccion('ARMADO')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
                   modoSeleccion === 'ARMADO'
-                    ? 'bg-white text-sky-600 shadow-sm'
+                    ? 'bg-white text-emerald-600 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -521,15 +521,15 @@ export default function CotizadorClientePage() {
           {/* BUSCADOR CONDICIONAL SEGÚN MODO */}
           {modoSeleccion === 'ARMADO' ? (
             /* VISTA SELECTOR DE ARMADOS / KITS */
-            <div className="bg-sky-50/50 border border-sky-100 p-4 rounded-xl space-y-3">
-              <label className="block text-xs font-bold text-sky-900">
+            <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl space-y-3">
+              <label className="block text-xs font-bold text-emerald-900">
                 Selecciona un Armado Configurado (Kits de Fertilización, etc.)
               </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   value={kitSeleccionadoId}
                   onChange={(e) => setKitSeleccionadoId(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">-- Selecciona un Armado / Kit --</option>
                   {kitsDB.map((kit) => (
@@ -542,7 +542,7 @@ export default function CotizadorClientePage() {
                   type="button"
                   onClick={() => kitSeleccionadoId && agregarKitCompleto(kitSeleccionadoId)}
                   disabled={!kitSeleccionadoId}
-                  className="bg-sky-600 hover:bg-sky-700 text-white text-xs px-4 rounded-xl shrink-0 flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 rounded-xl shrink-0 flex items-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" /> Desglosar e Inyectar Componentes
                 </Button>
@@ -572,7 +572,7 @@ export default function CotizadorClientePage() {
                       setMostrarResultados(true);
                     }}
                     onFocus={() => setMostrarResultados(true)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-sky-500"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
 
                   {mostrarResultados && busquedaProducto.length > 0 && (
@@ -582,13 +582,13 @@ export default function CotizadorClientePage() {
                           <div
                             key={p.id}
                             onClick={() => seleccionarProducto(p)}
-                            className="p-3 hover:bg-sky-50 cursor-pointer flex justify-between items-center text-xs"
+                            className="p-3 hover:bg-emerald-50 cursor-pointer flex justify-between items-center text-xs"
                           >
                             <div>
                               <p className="font-bold text-slate-800">{p.nombre}</p>
                               <p className="text-[10px] text-slate-400 font-mono">SKU: {p.sku || 'N/A'}</p>
                             </div>
-                            <span className="font-semibold text-sky-700">{formatearMonto(p.ultimo_precio_venta || 0, moneda)}</span>
+                            <span className="font-semibold text-emerald-700">{formatearMonto(p.ultimo_precio_venta || 0, moneda)}</span>
                           </div>
                         ))
                       ) : (
@@ -621,7 +621,7 @@ export default function CotizadorClientePage() {
                 </div>
 
                 <div className="sm:col-span-1 flex items-center">
-                  <Button type="button" onClick={agregarItemIndividual} className="w-full bg-sky-600 hover:bg-sky-700 text-white p-2.5 rounded-lg">
+                  <Button type="button" onClick={agregarItemIndividual} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-lg">
                     <Plus className="w-4 h-4 mx-auto" />
                   </Button>
                 </div>
@@ -630,7 +630,7 @@ export default function CotizadorClientePage() {
           )}
 
           {/* TABLA DE PRODUCTOS AGREGADOS */}
-          <table className="w-full text-left text-xs mt-4">
+          <table className="w-full text-left text-sm mt-4">
             <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
               <tr>
                 <th className="p-2.5">Producto</th>
@@ -673,7 +673,7 @@ export default function CotizadorClientePage() {
             <div className="w-64 space-y-2 bg-slate-50 p-4 rounded-xl border text-xs">
               <div className="flex justify-between text-slate-600"><span>Subtotal:</span><b>{formatearMonto(subtotal, moneda)}</b></div>
               <div className="flex justify-between text-slate-600"><span>IGV (18%):</span><b>{formatearMonto(igv, moneda)}</b></div>
-              <div className="flex justify-between text-sm font-black text-sky-900 pt-2 border-t"><span>TOTAL:</span><span>{formatearMonto(total, moneda)}</span></div>
+              <div className="flex justify-between text-sm font-black text-emerald-900 pt-2 border-t"><span>TOTAL:</span><span>{formatearMonto(total, moneda)}</span></div>
             </div>
           </div>
         </div>

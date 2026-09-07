@@ -168,11 +168,11 @@ export async function POST(request: Request) {
 
       if (errorDetalles) throw errorDetalles;
 
-      detallesGuardados = (dataDetalles || []).map((d: any) => ({
+      detallesGuardados = (dataDetalles || []).map((d) => ({
         id: d.id,
         producto_id: d.producto_id,
         producto_nombre: d.producto?.nombre || 'Producto',
-        producto_sku: d.producto?.sku || null,
+        producto_sku: d.producto?.sku || undefined,
         cantidad: d.cantidad,
         precio_unitario: d.precio_unitario,
         subtotal: d.subtotal,

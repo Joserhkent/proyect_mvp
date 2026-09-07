@@ -1,20 +1,39 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { Plus, Search, ShoppingCart, Wrench, Receipt, CheckCircle2, Eye, Filter, Pencil, Trash2, Download } from 'lucide-react';
+import { Plus, Search, ShoppingCart, Wrench, Receipt, CheckCircle2, Eye, Filter, Pencil, Trash2, Download, Building2, Truck } from 'lucide-react';
 import { useAgroErp } from '@/context/AgroErpContext';
 import { Cotizacion, Producto } from '@/types/erp';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ActionsMenu, ActionsMenuItem } from '@/components/ui/ActionsMenu';
 import { useToast } from '@/components/ui/Toast';
 import { generarCotizacionPDF } from '@/lib/documents';
+import { obtenerOfertasGanadorasPorCotizacion } from '@/lib/services/cotizaciones-proveedor';
+import { exportarExcel } from '@/lib/exportExcel';
+
+type OfertaGanadora = { costo_unitario: number; proveedor_id: string; proveedor_nombre?: string };
+
+function urlCotizarProveedores(cotizacion: Cotizacion): string {
+  const items = (cotizacion.detalles || []).map((d) => ({
+    producto_id: d.producto_id,
+    producto_nombre: d.producto_nombre || '',
+    cantidad: d.cantidad,
+  }));
+  const params = new URLSearchParams({
+    cotizacion_id: cotizacion.id,
+    numero: cotizacion.numero,
+    items: JSON.stringify(items),
+  });
+  return `/cotizador/proveedor?${params.toString()}`;
+}
 
 export default function AdminCotizacionesPage() {
   const {
     cotizaciones,
     productos,
+    usuarios,
     editarCotizacion,
     aprobarCotizacion,
     generarOrdenesCompraDesdeCotizacion,
@@ -22,6 +41,8 @@ export default function AdminCotizacionesPage() {
     emitirFacturaSunatDesdeCotizacion,
   } = useAgroErp();
   const { showToast } = useToast();
+
+  const tecnicosDisponibles = usuarios.filter((u) => u.rol === 'TECNICO');
 
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('TODOS');
@@ -34,7 +55,7 @@ export default function AdminCotizacionesPage() {
 
   // Modal Asignar Técnico
   const [isAsignarModalOpen, setIsAsignarModalOpen] = useState(false);
-  const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState('usr_tecnico_1');
+  const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState('');
   const [fechaInstalacion, setFechaInstalacion] = useState(
     () => new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
   );
@@ -53,6 +74,25 @@ export default function AdminCotizacionesPage() {
     const matchEstado = filtroEstado === 'TODOS' || c.estado === filtroEstado;
     return matchSearch && matchEstado;
   });
+
+  const handleExportarExcel = () => {
+    exportarExcel(
+      'cotizaciones',
+      'Cotizaciones',
+      [
+        { header: 'Número', key: 'numero', valor: (c: Cotizacion) => c.numero },
+        { header: 'Fecha', key: 'fecha', valor: (c: Cotizacion) => c.fecha ?? '' },
+        { header: 'Cliente', key: 'cliente', valor: (c: Cotizacion) => c.cliente_razon_social },
+        { header: 'Tipo Doc.', key: 'tipo_doc', valor: (c: Cotizacion) => c.cliente_tipo_doc ?? '' },
+        { header: 'RUC/DNI', key: 'num_doc', valor: (c: Cotizacion) => c.cliente_num_doc },
+        { header: 'Tipo Operación', key: 'tipo_operacion', valor: (c: Cotizacion) => c.tipo_operacion },
+        { header: 'Estado', key: 'estado', valor: (c: Cotizacion) => c.estado },
+        { header: 'Moneda', key: 'moneda', valor: (c: Cotizacion) => c.moneda },
+        { header: 'Total', key: 'total', valor: (c: Cotizacion) => c.total, formatoNumero: '#,##0.00' },
+      ],
+      cotizacionesFiltradas
+    );
+  };
 
   const handleAprobar = async (id: string) => {
     setIsProcessing(true);
@@ -82,6 +122,8 @@ export default function AdminCotizacionesPage() {
     }
   };
 
+  const [ofertasGanadoras, setOfertasGanadoras] = useState<Record<string, OfertaGanadora>>({});
+
   const openEditModal = (cotizacion: Cotizacion) => {
     setEditingCot(cotizacion);
     setEditDetails(cotizacion.detalles.map((detalle) => ({ ...detalle })));
@@ -89,6 +131,10 @@ export default function AdminCotizacionesPage() {
     setSelectedProductId('');
     setEditProductSearch('');
     setSelectedCot(null);
+    setOfertasGanadoras({});
+    obtenerOfertasGanadorasPorCotizacion(cotizacion.id)
+      .then(setOfertasGanadoras)
+      .catch(() => setOfertasGanadoras({}));
   };
 
   const removeEditDetail = (detailId: string) => {
@@ -112,16 +158,19 @@ export default function AdminCotizacionesPage() {
         );
       }
 
+      const ofertaGanadora = ofertasGanadoras[producto.id];
+      const costoUnitario = ofertaGanadora?.costo_unitario ?? producto.ultimo_costo_compra ?? 0;
+
       const nuevoDetalle: Cotizacion['detalles'][number] = {
         id: `edit_${Date.now()}_${producto.id}`,
         producto_id: producto.id,
-        producto_codigo: producto.codigo,
+        producto_sku: producto.sku || '',
         producto_nombre: producto.nombre,
-        proveedor_id: producto.proveedor_id,
+        proveedor_id: ofertaGanadora?.proveedor_id ?? producto.proveedor_id,
         cantidad: 1,
-        precio_unitario: producto.precio_venta,
-        costo_unitario: producto.costo_compra,
-        subtotal: producto.precio_venta,
+        precio_unitario: producto.ultimo_precio_venta ?? 0,
+        costo_unitario: costoUnitario,
+        subtotal: producto.ultimo_precio_venta ?? 0,
       };
       return [...prev, nuevoDetalle];
     });
@@ -132,8 +181,8 @@ export default function AdminCotizacionesPage() {
   const productosEditables = productos.filter((producto) => {
     const searchValue = editProductSearch.toLowerCase().trim();
     if (!searchValue) return true;
-    return [producto.codigo, producto.nombre, producto.descripcion]
-      .some((value) => value.toLowerCase().includes(searchValue));
+    return [producto.sku, producto.nombre, producto.descripcion]
+      .some((value) => (value || '').toLowerCase().includes(searchValue));
   });
 
   const updateEditDetail = (detailId: string, field: 'cantidad' | 'precio_unitario', value: number) => {
@@ -170,57 +219,57 @@ export default function AdminCotizacionesPage() {
     }
   };
 
-  const handleConfirmarAsignacionTecnico = () => {
-    if (!selectedCot) return;
-    const tecNombre =
-      tecnicoSeleccionado === 'usr_tecnico_1'
-        ? 'Juan Quispe Ramos (Técnico Senior)'
-        : 'Marcos Benites (Técnico de Campo)';
+  const handleConfirmarAsignacionTecnico = async () => {
+    if (!selectedCot || !tecnicoSeleccionado) return;
+    const tecnico = tecnicosDisponibles.find((t) => t.id === tecnicoSeleccionado);
+    if (!tecnico) return;
 
-    asignarOrdenTrabajo(selectedCot.id, tecnicoSeleccionado, tecNombre, fechaInstalacion);
-    setIsAsignarModalOpen(false);
-    setSelectedCot(null);
-    setActionSuccessMsg(`Orden de Trabajo asignada a ${tecNombre} para el ${fechaInstalacion}.`);
-    setTimeout(() => setActionSuccessMsg(null), 4000);
-  };
-
-  const handleEmitirFactura = async (id: string) => {
     setIsProcessing(true);
     try {
-      const cpe = await emitirFacturaSunatDesdeCotizacion(id, 'FACTURA');
+      await asignarOrdenTrabajo(selectedCot.id, tecnico.id, tecnico.nombre, fechaInstalacion);
+      setIsAsignarModalOpen(false);
+      setSelectedCot(null);
+      setActionSuccessMsg(`Orden de Trabajo asignada a ${tecnico.nombre} para el ${fechaInstalacion}.`);
+      setTimeout(() => setActionSuccessMsg(null), 4000);
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'No se pudo asignar la orden de trabajo.');
+    } finally {
       setIsProcessing(false);
-      setActionSuccessMsg(`Factura electrónica ${cpe.serie}-${cpe.numero} emitida y ACEPTADA por SUNAT.`);
+    }
+  };
+
+  const handleEmitirFactura = async (id: string, tipo: 'FACTURA' | 'GUIA_REMISION' = 'FACTURA') => {
+    setIsProcessing(true);
+    try {
+      const cpe = await emitirFacturaSunatDesdeCotizacion(id, tipo);
+      setIsProcessing(false);
+      setActionSuccessMsg(
+        tipo === 'GUIA_REMISION'
+          ? `Guía de Remisión ${cpe.serie}-${cpe.numero} generada. Entrégala al cliente junto con los productos.`
+          : `Factura electrónica ${cpe.serie}-${cpe.numero} emitida y ACEPTADA por SUNAT.`
+      );
       setTimeout(() => setActionSuccessMsg(null), 4000);
     } catch {
       setIsProcessing(false);
-      showToast('error', 'Ocurrió un error al emitir la factura. Intenta nuevamente.');
+      showToast('error', 'Ocurrió un error al emitir el comprobante. Intenta nuevamente.');
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Gestión de Cotizaciones Comerciales
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Revisa, aprueba, genera órdenes de compra a proveedores y emite facturación SUNAT.
-          </p>
-        </div>
-
-        <Link href="/cotizador" target="_blank">
-          <Button className="text-xs">
-            <Plus className="w-4 h-4" />
-            Nueva Cotización (Portal)
-          </Button>
-        </Link>
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          Gestión de Cotizaciones Comerciales
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Revisa, aprueba, genera órdenes de compra a proveedores y emite facturación SUNAT.
+        </p>
       </div>
 
       {/* Success banner notification */}
       {actionSuccessMsg && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-sm font-bold flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{actionSuccessMsg}</span>
         </div>
@@ -235,7 +284,7 @@ export default function AdminCotizacionesPage() {
             placeholder="Buscar por número de cotización, cliente o RUC..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -244,7 +293,7 @@ export default function AdminCotizacionesPage() {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="text-xs py-1.5 px-3 rounded-lg bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+            className="text-sm py-2 px-3 rounded-lg bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
           >
             <option value="TODOS">Todos los estados</option>
             <option value="PENDIENTE">Pendientes</option>
@@ -255,12 +304,22 @@ export default function AdminCotizacionesPage() {
             <option value="FACTURADA">Facturadas SUNAT</option>
           </select>
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleExportarExcel}
+          className="text-xs border-slate-300 bg-white text-slate-700 shrink-0"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar Excel
+        </Button>
       </div>
 
       {/* Quotes Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] border-b border-slate-200">
               <tr>
                 <th className="p-4">Cotización / Fecha</th>
@@ -308,8 +367,8 @@ export default function AdminCotizacionesPage() {
                     </td>
 
                     <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                        {/* Botón Ver Detalle */}
+                      <div className="flex items-center justify-center gap-1.5">
+                        {/* Botón Ver Detalle: la acción más frecuente, siempre visible */}
                         <button
                           onClick={() => setSelectedCot(cot)}
                           title="Ver detalle"
@@ -318,79 +377,83 @@ export default function AdminCotizacionesPage() {
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
-                        {(cot.estado === 'PENDIENTE' || cot.estado === 'RECHAZADA') && (
-                          <button
-                            onClick={() => openEditModal(cot)}
-                            title="Editar cotización"
-                            className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-
-                        {/* Paso Aprobación */}
-                        {cot.estado === 'PENDIENTE' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleAprobar(cot.id)}
-                            isLoading={isProcessing}
-                            className="text-[11px] h-7 px-2"
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            Aprobar
-                          </Button>
-                        )}
-
-                        {/* Paso Generar Órdenes de Compra */}
-                        {(cot.estado === 'APROBADA' || cot.estado === 'PENDIENTE') && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleGenerarOC(cot.id)}
-                            isLoading={isProcessing}
-                            className="text-[11px] h-7 px-2"
-                            title="Agrupa ítems por proveedor y genera OCs automáticas"
-                          >
-                            <ShoppingCart className="w-3 h-3" />
-                            Generar OCs
-                          </Button>
-                        )}
-
-                        {/* Paso Asignar a Técnico (si es VENTA_ARMADO) */}
-                        {cot.tipo_operacion === 'VENTA_ARMADO' &&
-                          cot.estado !== 'FACTURADA' &&
-                          !cot.orden_trabajo_id && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedCot(cot);
-                                setIsAsignarModalOpen(true);
-                              }}
-                              className="text-[11px] h-7 px-2"
-                            >
-                              <Wrench className="w-3 h-3" />
-                              Asignar Técnico
-                            </Button>
-                          )}
-
-                        {/* Paso Facturación SUNAT */}
-                        {cot.estado !== 'FACTURADA' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleEmitirFactura(cot.id)}
-                            isLoading={isProcessing}
-                            className="text-[11px] h-7 px-2"
-                          >
-                            <Receipt className="w-3 h-3" />
-                            Facturar SUNAT
-                          </Button>
-                        )}
-
-                        {cot.estado === 'FACTURADA' && (
-                          <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                        {cot.estado === 'FACTURADA' ? (
+                          <span className="text-xs text-emerald-800 font-bold bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
                             ✓ Factura Emitida
                           </span>
+                        ) : (
+                          <ActionsMenu>
+                            {(cot.estado === 'PENDIENTE' || cot.estado === 'RECHAZADA') && (
+                              <ActionsMenuItem icon={Pencil} onClick={() => openEditModal(cot)}>
+                                Editar cotización
+                              </ActionsMenuItem>
+                            )}
+
+                            {cot.estado === 'PENDIENTE' && (
+                              <ActionsMenuItem
+                                icon={Building2}
+                                href={urlCotizarProveedores(cot)}
+                                title="Solicitar cotización de estos ítems a un proveedor"
+                              >
+                                Cotizar con Proveedores
+                              </ActionsMenuItem>
+                            )}
+
+                            {cot.estado === 'PENDIENTE' && (
+                              <ActionsMenuItem
+                                icon={CheckCircle2}
+                                variant="primary"
+                                disabled={isProcessing}
+                                onClick={() => handleAprobar(cot.id)}
+                              >
+                                Aprobar
+                              </ActionsMenuItem>
+                            )}
+
+                            {(cot.estado === 'APROBADA' || cot.estado === 'PENDIENTE') && (
+                              <ActionsMenuItem
+                                icon={ShoppingCart}
+                                disabled={isProcessing}
+                                onClick={() => handleGenerarOC(cot.id)}
+                                title="Agrupa ítems por proveedor y genera OCs automáticas"
+                              >
+                                Generar OCs
+                              </ActionsMenuItem>
+                            )}
+
+                            {cot.tipo_operacion === 'VENTA_ARMADO' && !cot.orden_trabajo_id && (
+                              <ActionsMenuItem
+                                icon={Wrench}
+                                onClick={() => {
+                                  setSelectedCot(cot);
+                                  setTecnicoSeleccionado(tecnicosDisponibles[0]?.id ?? '');
+                                  setIsAsignarModalOpen(true);
+                                }}
+                              >
+                                Asignar Técnico
+                              </ActionsMenuItem>
+                            )}
+
+                            {cot.tipo_operacion === 'SOLO_VENTA' && (
+                              <ActionsMenuItem
+                                icon={Truck}
+                                disabled={isProcessing}
+                                onClick={() => handleEmitirFactura(cot.id, 'GUIA_REMISION')}
+                                title="Genera la guía de remisión para entregar los productos al cliente"
+                              >
+                                Guía de Remisión
+                              </ActionsMenuItem>
+                            )}
+
+                            <ActionsMenuItem
+                              icon={Receipt}
+                              variant="primary"
+                              disabled={isProcessing}
+                              onClick={() => handleEmitirFactura(cot.id, 'FACTURA')}
+                            >
+                              Facturar SUNAT
+                            </ActionsMenuItem>
+                          </ActionsMenu>
                         )}
                       </div>
                     </td>
@@ -411,7 +474,7 @@ export default function AdminCotizacionesPage() {
           description={`Cliente: ${selectedCot.cliente_razon_social} (${selectedCot.cliente_num_doc})`}
           maxWidth="lg"
         >
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 text-sm">
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-2 gap-3">
               <div>
                 <span className="text-slate-500 font-semibold block">Dirección / Fundo:</span>
@@ -432,7 +495,7 @@ export default function AdminCotizacionesPage() {
                   <div>
                     <span className="font-bold text-slate-900">{d.producto_nombre}</span>
                     <span className="text-slate-500 block text-[10px]">
-                      Código: {d.producto_codigo} • Cant: {d.cantidad} x S/ {d.precio_unitario.toLocaleString('es-PE')}
+                      SKU: {d.producto_sku} • Cant: {d.cantidad} x S/ {d.precio_unitario.toLocaleString('es-PE')}
                     </span>
                   </div>
                   <span className="font-bold text-emerald-700">
@@ -443,7 +506,7 @@ export default function AdminCotizacionesPage() {
               {selectedCot.incluye_mano_obra && (
                 <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex justify-between items-center text-emerald-800 font-semibold">
                   <span>Mano de Obra e Instalación Técnica</span>
-                  <span>S/ {selectedCot.costo_mano_obra.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+                  <span>S/ {(selectedCot.costo_mano_obra || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
             </div>
@@ -481,7 +544,7 @@ export default function AdminCotizacionesPage() {
           description="Corrige los productos o precios y vuelve a enviarla al cliente para su aprobación."
           maxWidth="lg"
         >
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 text-sm">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Tipo de operación</label>
               <select
@@ -499,7 +562,15 @@ export default function AdminCotizacionesPage() {
                 <div key={detalle.id} className="grid grid-cols-[1fr_80px_100px_auto_auto] gap-2 items-end p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                   <div>
                     <span className="font-bold text-slate-900 block">{detalle.producto_nombre}</span>
-                    <span className="text-[10px] text-slate-500">{detalle.producto_codigo}</span>
+                    <span className="text-[10px] text-slate-500">{detalle.producto_sku}</span>
+                    {ofertasGanadoras[detalle.producto_id] && (
+                      <span className="text-[10px] text-emerald-700 font-bold block">
+                        Costo negociado: S/ {ofertasGanadoras[detalle.producto_id].costo_unitario.toFixed(2)}
+                        {ofertasGanadoras[detalle.producto_id].proveedor_nombre
+                          ? ` (${ofertasGanadoras[detalle.producto_id].proveedor_nombre})`
+                          : ''}
+                      </span>
+                    )}
                   </div>
                   <label className="text-slate-500">Cantidad
                     <input
@@ -553,7 +624,7 @@ export default function AdminCotizacionesPage() {
                   <option value="">Selecciona un producto</option>
                   {productosEditables.map((producto: Producto) => (
                     <option key={producto.id} value={producto.id}>
-                      {producto.codigo} - {producto.nombre} - {producto.descripcion}
+                      {producto.sku} - {producto.nombre} - {producto.descripcion}
                     </option>
                   ))}
                 </select>
@@ -588,19 +659,28 @@ export default function AdminCotizacionesPage() {
           title="Asignar Orden de Trabajo (Módulo Técnico)"
           description={`Cotización: ${selectedCot.numero} • Cliente: ${selectedCot.cliente_razon_social}`}
         >
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 text-sm">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
                 Técnico Especialista Asignado:
               </label>
-              <select
-                value={tecnicoSeleccionado}
-                onChange={(e) => setTecnicoSeleccionado(e.target.value)}
-                className="w-full p-2 rounded-lg border border-slate-300 bg-white text-slate-900 font-medium"
-              >
-                <option value="usr_tecnico_1">Juan Quispe Ramos (Técnico Senior Fertirriego)</option>
-                <option value="usr_tecnico_2">Marcos Benites (Técnico de Campo Hidráulico)</option>
-              </select>
+              {tecnicosDisponibles.length === 0 ? (
+                <p className="text-rose-600 font-medium p-2 bg-rose-50 border border-rose-200 rounded-lg">
+                  No hay técnicos registrados (usuarios con rol TECNICO) en el sistema.
+                </p>
+              ) : (
+                <select
+                  value={tecnicoSeleccionado}
+                  onChange={(e) => setTecnicoSeleccionado(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-slate-300 bg-white text-slate-900 font-medium"
+                >
+                  {tecnicosDisponibles.map((tecnico) => (
+                    <option key={tecnico.id} value={tecnico.id}>
+                      {tecnico.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
@@ -623,7 +703,11 @@ export default function AdminCotizacionesPage() {
               <Button variant="outline" onClick={() => setIsAsignarModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleConfirmarAsignacionTecnico}>
+              <Button
+                onClick={handleConfirmarAsignacionTecnico}
+                isLoading={isProcessing}
+                disabled={!tecnicoSeleccionado}
+              >
                 Confirmar y Asignar
               </Button>
             </div>

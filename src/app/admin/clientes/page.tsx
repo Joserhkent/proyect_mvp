@@ -42,7 +42,7 @@ export default function AdminClientesPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Directorio de Clientes & Fundos Agrícolas
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Empresas agroexportadoras, fundos y productores registrados con validación RUC/DNI SUNAT.
           </p>
         </div>
@@ -57,7 +57,7 @@ export default function AdminClientesPage() {
             placeholder="Buscar por razón social, RUC/DNI o correo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function AdminClientesPage() {
                   {cli.razon_social}
                 </h3>
 
-                <div className="space-y-1.5 text-xs text-slate-600 pt-3 mt-3 border-t border-slate-100">
+                <div className="space-y-1.5 text-sm text-slate-600 pt-3 mt-3 border-t border-slate-100">
                   <div className="flex items-start gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span className="line-clamp-2 text-slate-700">

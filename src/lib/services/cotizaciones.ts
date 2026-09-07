@@ -24,7 +24,7 @@ export interface RespuestaPaginadaCotizaciones {
 
 // Datos necesarios para crear una nueva cotización.
 // Omitimos los campos automáticos ('id', 'codigo', 'created_at', 'updated_at')
-export type PayloadCotizacion = Omit<Cotizacion, 'id' | 'codigo' | 'created_at' | 'updated_at'>;
+export type PayloadCotizacion = Omit<Cotizacion, 'id' | 'codigo' | 'numero' | 'created_at' | 'updated_at'>;
 
 // ==========================================
 // 2. HELPER DE FORMATO Y MONEDA

@@ -26,7 +26,7 @@ export function generarComprobanteXML(cpe: ComprobanteSunat): string {
   <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
   <cbc:ID>${cpe.serie}-${cpe.numero}</cbc:ID>
   <cbc:IssueDate>${cpe.fecha_emision}</cbc:IssueDate>
-  <cbc:InvoiceTypeCode>${cpe.tipo_comprobante === 'FACTURA' ? '01' : '03'}</cbc:InvoiceTypeCode>
+  <cbc:InvoiceTypeCode>${cpe.tipo_comprobante === 'FACTURA' ? '01' : cpe.tipo_comprobante === 'BOLETA' ? '03' : '09'}</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>${cpe.moneda}</cbc:DocumentCurrencyCode>
   <cac:AccountingSupplierParty>
     <cac:Party>

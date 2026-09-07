@@ -24,7 +24,7 @@ export default function AdminOrdenesTrabajoPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Módulo Técnico • Órdenes de Trabajo en Campo
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Supervisión del ensamblaje e instalación de mesas de fertilización, bitácoras fotográficas y firmas de conformidad.
           </p>
         </div>
@@ -54,17 +54,17 @@ export default function AdminOrdenesTrabajoPage() {
 
               <h3 className="text-sm font-bold text-slate-900 leading-snug">{ot.cliente_nombre}</h3>
 
-              <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-2">
+              <div className="flex items-start gap-1.5 text-sm text-slate-600 mt-2">
                 <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                 <span className="line-clamp-2">{ot.ubicacion_fundo}</span>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-2">
+              <div className="flex items-center gap-1.5 text-sm text-slate-600 mt-2">
                 <User className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
                 <span className="font-semibold text-slate-800">{ot.tecnico_nombre}</span>
               </div>
 
-              <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm">
                 <div className="flex justify-between text-slate-600">
                   <span>Hitos en Bitácora:</span>
                   <span className="font-bold text-emerald-700">{ot.bitacora.length} registrados</span>
@@ -104,7 +104,7 @@ export default function AdminOrdenesTrabajoPage() {
           description={`Cliente: ${selectedOT.cliente_nombre} • Fundo: ${selectedOT.ubicacion_fundo}`}
           maxWidth="lg"
         >
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 text-sm">
             {/* Header info */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-2 gap-2 text-slate-700">
               <div>

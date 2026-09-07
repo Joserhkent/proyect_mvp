@@ -61,8 +61,8 @@ export function Modal({
       >
         <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-100">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
+            {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
           </div>
           <button
             onClick={onClose}

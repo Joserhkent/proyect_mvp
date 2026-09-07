@@ -10,6 +10,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
 import { downloadTextFile, generarComprobanteXML, generarCdrTexto, generarComprobantePDF } from '@/lib/documents';
+import { exportarExcel } from '@/lib/exportExcel';
 
 export default function AdminSunatPage() {
   const { comprobantesSunat } = useAgroErp();
@@ -24,6 +25,27 @@ export default function AdminSunatPage() {
       cpe.cliente_num_doc.includes(search)
   );
 
+  const handleExportarExcel = () => {
+    exportarExcel(
+      'comprobantes-sunat',
+      'Comprobantes SUNAT',
+      [
+        { header: 'Tipo', key: 'tipo', valor: (c: ComprobanteSunat) => c.tipo_comprobante },
+        { header: 'Serie-Número', key: 'serie_numero', valor: (c: ComprobanteSunat) => `${c.serie}-${c.numero}` },
+        { header: 'Fecha Emisión', key: 'fecha', valor: (c: ComprobanteSunat) => c.fecha_emision ?? '' },
+        { header: 'Cliente', key: 'cliente', valor: (c: ComprobanteSunat) => c.cliente_razon_social },
+        { header: 'Tipo Doc.', key: 'tipo_doc', valor: (c: ComprobanteSunat) => c.cliente_tipo_doc ?? '' },
+        { header: 'RUC/DNI', key: 'num_doc', valor: (c: ComprobanteSunat) => c.cliente_num_doc },
+        { header: 'Estado SUNAT', key: 'estado', valor: (c: ComprobanteSunat) => c.estado_sunat },
+        { header: 'Moneda', key: 'moneda', valor: (c: ComprobanteSunat) => c.moneda },
+        { header: 'Subtotal', key: 'subtotal', valor: (c: ComprobanteSunat) => c.subtotal, formatoNumero: '#,##0.00' },
+        { header: 'IGV', key: 'igv', valor: (c: ComprobanteSunat) => c.igv, formatoNumero: '#,##0.00' },
+        { header: 'Total', key: 'total', valor: (c: ComprobanteSunat) => c.total, formatoNumero: '#,##0.00' },
+      ],
+      filteredCPE
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -32,7 +54,7 @@ export default function AdminSunatPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Facturación Electrónica SUNAT (UBL 2.1)
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Registro de Comprobantes de Pago Electrónicos (Facturas, Boletas, Guías de Remisión) y Constancias de Recepción (CDR).
           </p>
         </div>
@@ -56,23 +78,33 @@ export default function AdminSunatPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-        <div className="relative">
+      <div className="flex flex-col sm:flex-row gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+        <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Buscar por serie-número, cliente o RUC..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleExportarExcel}
+          className="text-xs border-slate-300 bg-white text-slate-700 shrink-0"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar Excel
+        </Button>
       </div>
 
       {/* Invoices Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] border-b border-slate-200">
               <tr>
                 <th className="p-4">Comprobante</th>
@@ -170,7 +202,7 @@ export default function AdminSunatPage() {
           title={`Comprobante Electrónico: ${selectedCPE.serie}-${selectedCPE.numero}`}
           description={`Validado con éxito por el servidor de SUNAT`}
         >
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 text-sm">
             {/* SUNAT Response Banner */}
             <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
               <div className="flex items-center gap-1.5 font-bold text-xs">

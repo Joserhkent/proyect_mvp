@@ -24,6 +24,22 @@ interface FormEdicionState {
   estado: CotizacionProveedorEstado;
 }
 
+interface CotizacionProveedorFila extends CotizacionProveedor {
+  cotizacion?: { id: string; codigo: string | null };
+  producto?: { id: string; nombre: string; sku: string | null };
+}
+
+function normalizarCotizacionesProveedor(data: unknown): CotizacionProveedor[] {
+  return ((data as CotizacionProveedorFila[]) || []).map((cot) => ({
+    ...cot,
+    cotizacion_id: cot.cotizacion?.id ?? cot.cotizacion_id,
+    cotizacion_numero: cot.cotizacion?.codigo ?? undefined,
+    producto_nombre: cot.producto?.nombre ?? cot.producto_nombre,
+    producto_sku: cot.producto?.sku ?? cot.producto_sku ?? undefined,
+    proveedor_nombre: cot.proveedor?.razon_social ?? cot.proveedor_nombre,
+  }));
+}
+
 export default function CotizacionesProveedoresListaPage() {
   const [cotizaciones, setCotizaciones] = useState<CotizacionProveedor[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -40,7 +56,7 @@ export default function CotizacionesProveedoresListaPage() {
     try {
       setCargando(true);
       const data = await obtenerCotizacionesProveedores();
-      setCotizaciones((data as CotizacionProveedor[]) || []);
+      setCotizaciones(normalizarCotizacionesProveedor(data));
     } catch (err) {
       showToast('error', 'No se pudieron cargar las cotizaciones.');
     } finally {
@@ -55,7 +71,7 @@ export default function CotizacionesProveedoresListaPage() {
       try {
         const data = await obtenerCotizacionesProveedores();
         if (!cancelado) {
-          setCotizaciones((data as CotizacionProveedor[]) || []);
+          setCotizaciones(normalizarCotizacionesProveedor(data));
         }
       } catch (err) {
         if (!cancelado) {
@@ -82,8 +98,21 @@ export default function CotizacionesProveedoresListaPage() {
       dias_entrega: cot.dias_entrega ?? '',
       descuento_aplicado: cot.descuento_aplicado ?? 0,
       es_ganadora: cot.es_ganadora ?? false,
-      estado: cot.estado === 'ENVIADO' ? 'RESPONDIDO' : cot.estado,
+      estado: cot.estado === 'PENDIENTE' ? 'RESPONDIDO' : cot.estado,
     });
+  };
+
+  // La BD solo acepta PENDIENTE | RECIBIDA | ACEPTADA | RECHAZADA (CHECK constraint);
+  // el formulario usa vocabulario de negociación más expresivo y lo traducimos aquí.
+  const ESTADO_UI_A_DB: Record<CotizacionProveedorEstado, string> = {
+    PENDIENTE: 'PENDIENTE',
+    ENVIADO: 'PENDIENTE',
+    RESPONDIDO: 'RECIBIDA',
+    RECIBIDA: 'RECIBIDA',
+    APROBADO: 'ACEPTADA',
+    ACEPTADA: 'ACEPTADA',
+    RECHAZADO: 'RECHAZADA',
+    RECHAZADA: 'RECHAZADA',
   };
 
   const guardarRespuesta = async () => {
@@ -93,14 +122,14 @@ export default function CotizacionesProveedoresListaPage() {
       setGuardandoId(itemEdicion.id);
       const supabase = createClient();
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('cotizaciones_proveedor')
         .update({
-          costo_unitario: itemEdicion.costo_unitario !== '' ? Number(itemEdicion.costo_unitario) : null,
+          costo_unitario: itemEdicion.costo_unitario !== '' ? Number(itemEdicion.costo_unitario) : 0,
           dias_entrega: itemEdicion.dias_entrega !== '' ? Number(itemEdicion.dias_entrega) : null,
           descuento_aplicado: Number(itemEdicion.descuento_aplicado) || 0,
           es_ganadora: itemEdicion.es_ganadora,
-          estado: itemEdicion.estado,
+          estado: ESTADO_UI_A_DB[itemEdicion.estado],
           fecha_respuesta: new Date().toISOString(),
         })
         .eq('id', itemEdicion.id);
@@ -120,7 +149,7 @@ export default function CotizacionesProveedoresListaPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg text-xs font-semibold text-white ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg text-sm font-semibold text-white ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
           {toast.message}
         </div>
       )}
@@ -130,7 +159,7 @@ export default function CotizacionesProveedoresListaPage() {
           <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-emerald-600" /> Monitoreo y Respuestas de Proveedores
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-500">
             Registra los precios ofrecidos y selecciona la opción ganadora por ítem.
           </p>
         </div>
@@ -143,13 +172,14 @@ export default function CotizacionesProveedoresListaPage() {
         {cargando ? (
           <div className="p-12 text-center text-slate-400">
             <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-            <p className="text-xs">Cargando cotizaciones...</p>
+            <p className="text-sm">Cargando cotizaciones...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-sm">
               <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b">
                 <tr>
+                  <th className="p-3">Cotización Cliente</th>
                   <th className="p-3">Proveedor</th>
                   <th className="p-3">Producto / Insumo</th>
                   <th className="p-3 text-center">Cant.</th>
@@ -165,8 +195,11 @@ export default function CotizacionesProveedoresListaPage() {
                 {cotizaciones.length > 0 ? (
                   cotizaciones.map((cot) => (
                     <tr key={cot.id} className={cot.es_ganadora ? 'bg-emerald-50/50' : 'hover:bg-slate-50/50'}>
+                      <td className="p-3 font-mono text-blue-700 font-bold">
+                        {cot.cotizacion_numero || 'Solicitud libre'}
+                      </td>
                       <td className="p-3 font-semibold text-slate-800">
-                        {cot.proveedor?.razon_social || 'Proveedor Desconocido'}
+                        {cot.proveedor_nombre || 'Proveedor Desconocido'}
                       </td>
                       <td className="p-3 font-medium text-slate-700">
                         {cot.producto_nombre || 'Producto no especificado'}
@@ -215,7 +248,7 @@ export default function CotizacionesProveedoresListaPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-slate-400 italic">
+                    <td colSpan={10} className="p-8 text-center text-slate-400 italic">
                       No hay solicitudes de cotización registradas.
                     </td>
                   </tr>
@@ -237,7 +270,7 @@ export default function CotizacionesProveedoresListaPage() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3 text-sm">
               <div>
                 <label className="block font-semibold text-slate-600 mb-1">Costo Unitario (S/)</label>
                 <input

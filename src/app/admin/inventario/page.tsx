@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Package, Search, Loader2 } from 'lucide-react';
+import { Package, Search, Loader2, Download } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
 import { buscarProductos } from '@/lib/services/productos';
+import { exportarExcel } from '@/lib/exportExcel';
 import type { Producto } from '@/types/erp';
 
 export default function AdminInventarioPage() {
@@ -40,6 +42,24 @@ export default function AdminInventarioPage() {
     return categoria === 'TODAS' || p.categoria === categoria;
   });
 
+  const handleExportarExcel = () => {
+    exportarExcel(
+      'inventario',
+      'Productos',
+      [
+        { header: 'SKU', key: 'sku', valor: (p: Producto) => p.sku ?? '' },
+        { header: 'Nombre', key: 'nombre', valor: (p: Producto) => p.nombre },
+        { header: 'Categoría', key: 'categoria', valor: (p: Producto) => p.categoria },
+        { header: 'Unidad', key: 'unidad', valor: (p: Producto) => p.unidad_medida },
+        { header: 'Último Costo', key: 'costo', valor: (p: Producto) => p.ultimo_costo_compra, formatoNumero: '#,##0.00' },
+        { header: 'Precio Venta', key: 'precio', valor: (p: Producto) => p.ultimo_precio_venta, formatoNumero: '#,##0.00' },
+        { header: 'Stock Actual', key: 'stock_actual', valor: (p: Producto) => p.stock_actual ?? 0 },
+        { header: 'Stock Reservado', key: 'stock_reservado', valor: (p: Producto) => p.stock_reservado ?? 0 },
+      ],
+      filtered
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -48,7 +68,7 @@ export default function AdminInventarioPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Catálogo de Productos & Control de Stock
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Componentes de mesas de fertilización, tuberías, bombas, sensores e insumos agrícolas.
           </p>
         </div>
@@ -63,14 +83,14 @@ export default function AdminInventarioPage() {
             placeholder="Buscar por SKU o nombre..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
         <select
           value={categoria}
           onChange={(e) => setCategoria(e.target.value)}
-          className="text-xs py-1.5 px-3 rounded-lg bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+          className="text-sm py-2 px-3 rounded-lg bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
         >
           <option value="TODAS">Todas las categorías</option>
           <option value="EQUIPO_FERTILIZACION">Mesas de Fertilización</option>
@@ -84,12 +104,22 @@ export default function AdminInventarioPage() {
           <option value="HERRAMIENTA">Herramientas</option>
           <option value="OTRO">Otros</option>
         </select>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleExportarExcel}
+          className="text-xs border-slate-300 bg-white text-slate-700 shrink-0"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar Excel
+        </Button>
       </div>
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] border-b border-slate-200">
               <tr>
                 <th className="p-4">SKU / Producto</th>
